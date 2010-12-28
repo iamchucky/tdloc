@@ -1,0 +1,65 @@
+/*! \mainpage CMU 1394 Digital Camera Driver
+\section Introduction
+<p> The purpose of this driver set is to provide easy, direct access to
+the controls and imagery of compliant cameras on the 1394 serial bus.
+These cameras are capable of transmitting image data at up to 400 mbps*
+while also offering the ability to control myriad parameters of the
+camera from software. </p>
+<p> The work on this driver set started back in 1999, when cameras that
+comply with the 1394 Digital Camera Specification were first becoming
+commercially available.  Back then, there was a void of software support
+for these cameras, so we took it upon ourselves to write our own, then
+make it publicly available. </p>
+<p> Now, cameras that fit this specification are popping up everywhere,
+and despite the appearance of other software packages like this one, our
+driver set remains wildly popular in the research community, with
+thousands of downloads each month. </p>
+\section A Note About DV Cameras
+<p> There are many consumer (and professional) digital camcorders
+available that use the 1394 bus to transfer data to a computer but are
+not in and of themselves compliant with the 1394 Digital Camera
+Specification. These cameras, widely classified as <b>DV</b> cameras <i>will
+not work with this driver set</i>. </p>
+\section Requirements
+This driver set should work with all versions of MS Windows from 98 SE
+through XP.  Beyond that, there are no hard minimums other than a 1394
+host controller (preferably OHCI-compliant) and a camera.  However, the
+things that you can do with the data from these cameras will be limited
+by how much RAM you have and how fast your processer is, so more of both
+will be better.  I wouldn't expect useful results on anything less than
+a Pentium II 233 with 64 MB of RAM.
+\section Acknowledgements
+<p>First and foremost, we would like to recognize the original author
+of the driver set, Iwan Ulrich.  Ulrich is unfortunately no longer with
+us. Iwan and his wife Catherine were killed in a severe car accident
+during a vacation on the West Coast on July 4, 2000. As a tribute to
+Iwan, we at The Robotics Institute will continue to maintain this very
+popular driver set. </p>
+<p>The current curator of the driver set is Christopher Baker <a
+ href="mailto:cbaker+iwan1394@cs.cmu.edu">cbaker+iwan1394@cs.cmu.edu</a>.
+He was an undergraduate student in the School of Compute Science and is
+now a graduate student in the Robotics Institute.  While the work he
+does on the driver set is tangentially to his projects, the time he
+spends on development is largely his own.&nbsp; As such, he cannot
+always respond quickly to requests or provide extensive support. </p>
+<p>Other people who deserve credit: </p>
+<ul>
+  <li>David Walk for lending us a camera for several months and for his
+support in general. </li>
+  <li>Jerry Fife for lending us Sony cameras and for providing us with
+technical information </li>
+  <li>Ben Wegbreit for funding a large part of this project. </li>
+  <li>Mark Whitehorn for helping with the multiple camera support. </li>
+  <li>Ruigang Yang and Greg Welch for Windows 2000 support. </li>
+  <li>Chikayoshi Okamura for his technical support. </li>
+  <li>Larry Klementowsky for his technical advice. </li>
+  <li>Darlene Theriault for providing the original documentation for
+version 4.0. </li>
+  <li>All the grateful and patient users of the driver set who make
+this endeavor worthwhile. </li>
+</ul>
+<p> <i>* - only 80% of the 1394 bus bandwidth may be
+allocated for actual data streaming, limiting the data rate to 320 mbps.
+The remaining 20% is reserved for asynchronous transfers and general bus
+overhead.</i> </p>
+*/
