@@ -50,6 +50,9 @@
 #define SHUTTERVAL			200
 #define WHITEBALANCE_VALUE1	510
 #define WHITEBALANCE_VALUE2	800
+
+#define UNDIST true		// Setting to undistort the camera to account for lens distortion.
+
 using namespace std;
 //Encapsulates the UDP connection class for syncronized images delivered
 //from a 1394 camera, using the CMU cam driver
@@ -187,14 +190,8 @@ public:
 	int DoAutoWhiteBalance(C1394Camera* camPtr, IplImage *im, unsigned short *wr, unsigned short *wb);
 
 	DWORD CamThread();
-	DWORD CamThread1();
-	DWORD CamThread2();
 	HANDLE cameraEvent;
-	HANDLE cameraEvent1;
-	HANDLE cameraEvent2;
 	unsigned char* buf;
-	unsigned char* buf1;
-	unsigned char* buf2;
 	double curtimestamp;
 	int lastMedian;
 	int lastMaxAcc;
@@ -210,15 +207,12 @@ private:
 	static int shortComp (const void* a, const void* b);
 	static int charComp (const void* a, const void* b);
 	static C1394Camera camera;
-	static C1394Camera camera1;
-	static C1394Camera camera2;
 
 	//CAutoWhiteBal m_wbal[3];
 
+	int camId;
 	bool isRunning;	
 	HANDLE cameraHandle;
-	HANDLE cameraHandle1;
-	HANDLE cameraHandle2;
 	SyncCamParams config;
 	int GetNumMaxedPixelsInBuf (unsigned char* buf, int top, int bottom);
 	int GetMedianPixelValue(unsigned char* buf, int top, int bottom);

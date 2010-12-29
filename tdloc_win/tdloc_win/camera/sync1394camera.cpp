@@ -1,36 +1,39 @@
 #include "sync1394camera.h"
+
 C1394Camera Sync1394Camera::camera;
-C1394Camera Sync1394Camera::camera1;
-C1394Camera Sync1394Camera::camera2;
 
 DWORD WINAPI CamThreadWrap(LPVOID t)
 {
 	return ((Sync1394Camera*)t)->CamThread();
 }
 
-DWORD WINAPI CamThreadWrap1(LPVOID t)
-{
-	return ((Sync1394Camera*)t)->CamThread1();
-}
-
-DWORD WINAPI CamThreadWrap2(LPVOID t)
-{
-	return ((Sync1394Camera*)t)->CamThread2();
-}
-
-// camera 0
 int bullshit= 0;
 DWORD Sync1394Camera::CamThread ()
 {
 	//init white balance************************************************
 	bool iswbconverged=0;
 	int wbFreq = 10;
+	IplImage* mapx;
+	IplImage* mapy;
+
+	if (UNDIST)
+	{
+		// Build the undistort map which we will use for all 
+		// subsequent frames.
+		//
+		mapx = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
+		mapy = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
+		mapx = (IplImage*)cvLoad("..\\Unibrain\\mapx.xml");
+		mapy = (IplImage*)cvLoad("..\\Unibrain\\mapy.xml");
+	}
 
 	CAutoWhiteBal m_wbal;
 	unsigned short r_gain,b_gain;
 	unsigned short r_gain_old,b_gain_old;
 	IplImage *wbim = cvCreateImage(cvSize(config.width,config.height),8,1);	
 	IplImage *wbrgb = cvCreateImage(cvSize(config.width,config.height),8,3);
+	IplImage *undist_src = cvCreateImage(cvSize(config.width,config.height),8,3);	
+	IplImage *undist_dst = cvCreateImage(cvSize(config.width,config.height),8,3);
 	m_wbal.InitInstance(cvSize(config.width,config.height));	
 	//******************************************************************
 	printf("Cam Thread Started\n\n");
@@ -52,7 +55,7 @@ DWORD Sync1394Camera::CamThread ()
 		}
 		if (dFrames>0) printf ("DROPPED %d FRAMES! 0\n",dFrames);
 
-			EnterCriticalSection(&camgrab_cs);		
+		EnterCriticalSection(&camgrab_cs);		
 		if (config.isColor)
 		{
 			camptr->getRGB(buf,config.height * config.width * 3); dlength=1;
@@ -71,6 +74,12 @@ DWORD Sync1394Camera::CamThread ()
 		if ((bullshit %100==0) && (!config.AGC))
 		{
 			printf(".");
+		}
+		if (UNDIST)
+		{
+			memcpy(undist_src->imageData,buf,config.width*config.height*3);
+			cvRemap( undist_src, undist_dst, mapx, mapy );
+			memcpy(buf,undist_dst->imageData,config.width*config.height*3);
 		}
 		SetEvent (cameraEvent);	
 
@@ -187,309 +196,11 @@ DWORD Sync1394Camera::CamThread ()
 //		camSettings[0].getWhiteBal = SetAutoWhiteBal(camptr);
 		
 	}
+	cvReleaseImage(&undist_src);
+	cvReleaseImage(&undist_dst);
 	printf("\nCam Thread Ended\n");
 	return 0;
 }
-
-
-// camera 1
-int bullshit1= 0;
-DWORD Sync1394Camera::CamThread1 ()
-{
-	//init white balance************************************************
-	bool iswbconverged=0;
-	int wbFreq = 10;
-	CAutoWhiteBal m_wbal;
-	unsigned short r_gain,b_gain;
-	unsigned short r_gain_old,b_gain_old;
-	IplImage *wbim = cvCreateImage(cvSize(config.width,config.height),8,1);	
-	IplImage *wbrgb = cvCreateImage(cvSize(config.width,config.height),8,3);
-	m_wbal.InitInstance(cvSize(config.width,config.height));	
-	//******************************************************************
-
-
-	printf("Cam Thread1 Started\n\n");
-	while(isRunning) 
-	{	
-		// camera 1
-		C1394Camera* camptr = &camera1;
-		bullshit1++;
-		unsigned long dlength1=0;			
-		int dFrames1=0;
-
-		if (CAM_SUCCESS != camptr->AcquireImageEx(TRUE,&dFrames1))
-		{
-			if (bullshit1 %100==0)
-				printf("COULD NOT AQUIRE AN IMAGE FROM THE CAMERA 1.\n");			
-			//this->buf1 = NULL;			
-			//while(1);
-		}
-		if (dFrames1>0) printf ("DROPPED %d FRAMES! 1\n",dFrames1);
-			EnterCriticalSection(&camgrab_cs);		
-		if (config.isColor)
-		{
-			camptr->getRGB(buf1,config.height * config.width * 3); dlength1=1;
-		}
-		else
-		{
-			camptr = &camera1;
-			buf1 = camptr->GetRawData (&dlength1);
-		}
-		LeaveCriticalSection(&camgrab_cs);
-		if (0 == dlength1) 
-		{			
-			continue;
-		}
-
-		if ((bullshit1 %100==0) && (!config.AGC))
-		{
-			printf(".");
-		}
-		SetEvent (cameraEvent1);
-
-		if ((config.AGC) && (config.isSlave == false))
-		{
-			if (bullshit1%3 == 0)
-			{
-#if AUTOGAIN_USE_MEDIAN
-				int median = GetMedianPixelValue(buf1,config.AGCtop,config.AGCbot);
-
-				//too bright, positive error, 
-				//so pos error means decrease gain
-				float error = ((float)median - (float)idealMedian); 
-				float effort = 1;
-				error = error*TOTAL_KP;
-
-				effort = (abs(error * kp));
-				if (error<0) effort*=-1;
-				AGCerror = error;
-				AGCeffort = effort;		
-
-				int newgain = (int)GetGain(camptr) - (int)effort;
-				if ((int)GetGain(camptr) != newgain)
-					SetGain (camptr,newgain);
-
-#ifdef USESHUTTERGAIN
-				float seffort = AUTOSHUTTER_KP;
-				int newShutter = (int) GetShutter (camptr)  - (int)(error*seffort);
-				if ((int)GetShutter(camptr) != newShutter)
-					SetShutter (camptr,newShutter);		
-
-
-#endif
-
-				double beffort = AUTOBRIGHT_KP;
-				int newbright = (int)GetBright(camptr) - (int) (error*beffort);
-				/*if ((int)GetBright(camptr) != newbright)
-					SetBright (camptr,newbright);*/
-				if (bullshit1 %100==0)
-				{
-					printf("CAM1 AGC: Median: %d Brightness: %d Gain: %d Shutter: %d Error: %f\n",median,newbright,newgain,newShutter,error);
-				}
-			}
-		
-				
-				
-
-			if(config.AutoWB){
-				float thres=1;
-				if(iswbconverged ){
-					wbFreq=10;
-				}
-				else{
-					wbFreq=1;
-				}
-				if(bullshit%wbFreq==0){
-					//cvShowImage("teest",wbim);cvWaitKey(10);
-					memcpy(wbim->imageData,buf1,config.width*config.height);
-					cvCvtColor(wbim,wbrgb,CV_BayerBG2BGR);
-					GetWhiteBal(camptr, &r_gain, &b_gain);
-					r_gain_old=r_gain;
-					b_gain_old=b_gain;
-					m_wbal.RunAWB(wbrgb, &r_gain, &b_gain);
-					SetWhiteBal(camptr, r_gain, b_gain);
-					if(abs(r_gain-r_gain_old)<thres && abs(b_gain-b_gain_old)<thres){	//check for converge1
-						iswbconverged=1;
-					}
-					else{
-						iswbconverged=0;
-					}
-				}
-			}
-				
-
-			
-
-			
-#else
-			int maxedOutPixels = GetNumMaxedPixelsInBuf(config.AGCtop,config.AGCbot);
-			if (maxedOutPixels != -1)
-			{
-				//too many pixels, + error
-				int error = (maxedOutPixels - AUTOGAIN_MAX_IDEAL); 
-				if ((error>0) && (GetGain()>0))	 //too bright
-					SetGain (GetGain() - 1);
-				else if (error<0)
-					SetGain (GetGain() + 1);
-			}
-#endif
-		}
-
-			
-	}
-	//clearing up
-	cvReleaseImage(&wbim);
-	cvReleaseImage(&wbrgb);
-
-	printf("\nCam Thread1 Ended\n");
-	return 0;
-}
-
-// camera 2
-int bullshit2= 0;
-DWORD Sync1394Camera::CamThread2 ()
-{
-	//init white balance************************************************
-	bool iswbconverged=0;
-	int wbFreq = 10;
-	CAutoWhiteBal m_wbal;
-	unsigned short r_gain,b_gain;
-	unsigned short r_gain_old,b_gain_old;
-	IplImage *wbim = cvCreateImage(cvSize(config.width,config.height),8,1);	
-	IplImage *wbrgb = cvCreateImage(cvSize(config.width,config.height),8,3);
-	m_wbal.InitInstance(cvSize(config.width,config.height));	
-	//******************************************************************
-
-	printf("Cam Thread2 Started\n\n");
-	while(isRunning) 
-	{	
-		// camera 2
-		C1394Camera* camptr = &camera2;
-		bullshit2++;
-		unsigned long dlength2=0;			
-		//float pgain = .01f;
-		int dFrames2=0;
-
-		if (CAM_SUCCESS != camptr->AcquireImageEx(TRUE,&dFrames2))
-		{
-			if (bullshit2 %100==0)
-				printf("COULD NOT AQUIRE AN IMAGE FROM THE CAMERA 2.\n");			
-			//this->buf2 = NULL;			
-			//while(1);
-		}
-		if (dFrames2>0) printf ("DROPPED %d FRAMES! 2\n",dFrames2);
-			EnterCriticalSection(&camgrab_cs);		
-		if (config.isColor)
-		{
-			camptr->getRGB(buf2,config.height * config.width * 3); dlength2=1;
-		}
-		else
-		{
-			camptr = &camera2;
-			buf2 = camptr->GetRawData (&dlength2);
-		}
-		LeaveCriticalSection(&camgrab_cs);
-		if (0 == dlength2) 
-		{			
-			continue;
-		}
-
-		if ((bullshit2 %100==0) && (!config.AGC))
-		{
-			printf(".");
-		}
-		SetEvent (cameraEvent2);	
-
-		if ((config.AGC) && (config.isSlave == false))
-		{
-			if(bullshit2%3 == 0)
-			{
-#if AUTOGAIN_USE_MEDIAN
-				int median = GetMedianPixelValue(buf2,config.AGCtop,config.AGCbot);
-
-				//too bright, positive error, 
-				//so pos error means decrease gain
-				float error = ((float)median - (float)idealMedian); 
-				float effort = 1;
-
-				error = error*TOTAL_KP;
-
-				effort = (abs(error * kp));
-				if (error<0) effort*=-1;
-				AGCerror = error;
-				AGCeffort = effort;		
-
-				int newgain = (int)GetGain(camptr) - (int)effort;
-				if ((int)GetGain(camptr) != newgain)
-					SetGain (camptr,newgain);
-
-#ifdef USESHUTTERGAIN
-				float seffort = AUTOSHUTTER_KP;
-				int newShutter = (int) GetShutter (camptr)  - (int)(error*seffort);
-				if ((int)GetShutter(camptr) != newShutter)
-					SetShutter (camptr,newShutter);
-#endif
-
-				double beffort = AUTOBRIGHT_KP;
-				int newbright = (int)GetBright(camptr) - (int) (error*beffort);
-				/*if ((int)GetBright(camptr) != newbright)
-					SetBright (camptr,newbright);*/
-				if (bullshit2 %100==0)
-				{
-					printf("CAM2 AGC: Median: %d Brightness: %d Gain: %d Shutter: %d Error: %f\n",median,newbright,newgain,newShutter,error);
-				}
-			}
-			
-			if(config.AutoWB){
-				float thres=1;
-				if(iswbconverged ){
-					wbFreq=10;
-				}
-				else{
-					wbFreq=1;
-				}
-				if(bullshit%wbFreq==0){
-					//cvShowImage("teest",wbim);cvWaitKey(10);
-					memcpy(wbim->imageData,buf2,config.width*config.height);
-					cvCvtColor(wbim,wbrgb,CV_BayerBG2BGR);
-					GetWhiteBal(camptr, &r_gain, &b_gain);
-					r_gain_old=r_gain;
-					b_gain_old=b_gain;
-					m_wbal.RunAWB(wbrgb, &r_gain, &b_gain);
-					SetWhiteBal(camptr, r_gain, b_gain);
-					if(abs(r_gain-r_gain_old)<thres && abs(b_gain-b_gain_old)<thres){	//check for converge1
-						iswbconverged=1;
-					}
-					else{
-						iswbconverged=0;
-					}
-				}
-			}
-
-			
-#else
-			int maxedOutPixels = GetNumMaxedPixelsInBuf(config.AGCtop,config.AGCbot);
-			if (maxedOutPixels != -1)
-			{
-				//too many pixels, + error
-				int error = (maxedOutPixels - AUTOGAIN_MAX_IDEAL); 
-				if ((error>0) && (GetGain()>0))	 //too bright
-					SetGain (GetGain() - 1);
-				else if (error<0)
-					SetGain (GetGain() + 1);
-			}
-#endif
-		}
-
-		
-	}
-
-	printf("\nCam Thread2 Ended\n");
-	return 0;
-}
-
-
-
 
 ///This is a little ghetto but will be useful. Call this function at the beginning of your app.
 // It will block until the auto gain setlles to the target gain value by adjusting shutter. It can
@@ -811,12 +522,8 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 	Sync1394Camera::config = m_config;	
 	int effWidth = config.partialWidth;
 	int effHeight = config.partialHeight;
-	if (cameraID == 0)
-		camptr = &camera;
-	else if (cameraID == 1)
-		camptr = &camera1;
-	else if (cameraID == 2)
-		camptr = &camera2;
+	
+	camptr = &camera;
 
 	if (config.isColor) 
 		size = effWidth * effHeight * 3;
@@ -824,12 +531,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 		size = effWidth * effHeight;
 	if (config.BitDepth16) size *= 2;
 
-	if(cameraID == 0)
-		buf = new unsigned char[size];
-	else if (cameraID == 1)
-		buf1 = new unsigned char[size];
-	else if (cameraID == 2)
-		buf2 = new unsigned char[size];
+	buf = new unsigned char[size];
 
 	if(camptr->RefreshCameraList() == 0 ) 
 	{ 
@@ -841,6 +543,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 		printf("Could not select camera\n" ); 
 		return false; 
 	}
+	camId = cameraID;
 	if(camptr->InitCamera()!=CAM_SUCCESS)	
 	{	
 		printf("Could not init camera\n" ); 
@@ -1146,20 +849,10 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 		}
 	}
 
-	if(cameraID == 0)
-	{
-		InitializeCriticalSection(&camgrab_cs);
+	InitializeCriticalSection(&camgrab_cs);
 
-		cameraHandle = CreateThread(NULL, 0, CamThreadWrap, this, 0, NULL);
-	}
-	else if(cameraID == 1)
-	{
-		cameraHandle1 = CreateThread(NULL, 0, CamThreadWrap1, this, 0, NULL);
-	}
-	else if(cameraID == 2)
-	{
-		cameraHandle2 = CreateThread(NULL, 0, CamThreadWrap2, this, 0, NULL);
-	}
+	cameraHandle = CreateThread(NULL, 0, CamThreadWrap, this, 0, NULL);
+
 
 	//Sleep(2000);//starting...
 	//SetThreadPriority(cameraHandle, THREAD_PRIORITY_HIGHEST);
@@ -1216,19 +909,19 @@ int Sync1394Camera::GetWhiteBal(C1394Camera* camptr, unsigned short *val0, unsig
 
 int Sync1394Camera::GetWhiteBal(int camId, int *val0, int *val1)
 {
-	C1394Camera* mycamPtr=NULL;
-	switch(camId){
-		case 0:
-			mycamPtr=&camera;
-			break;
-		case 1:
-			mycamPtr=&camera1;
-			break;
-		case 2:
-			mycamPtr=&camera2;
-			break;
-	}
-	return GetWhiteBal(mycamPtr, (unsigned short*)val0, (unsigned short*)val1);
+	//C1394Camera* mycamPtr=NULL;
+	//switch(camId){
+	//	case 0:
+	//		mycamPtr=&camera;
+	//		break;
+	//	case 1:
+	//		mycamPtr=&camera1;
+	//		break;
+	//	case 2:
+	//		mycamPtr=&camera2;
+	//		break;
+	//}
+	return GetWhiteBal(&camera, (unsigned short*)val0, (unsigned short*)val1);
 }
 
 
@@ -1244,19 +937,19 @@ int Sync1394Camera::SetWhiteBal(C1394Camera* camptr, unsigned short val0, unsign
 
 int Sync1394Camera::SetWhiteBal(int camId, int val0, int val1)
 {
-	C1394Camera* mycamPtr=NULL;
-	switch(camId){
-		case 0:
-			mycamPtr=&camera;
-			break;
-		case 1:
-			mycamPtr=&camera1;
-			break;
-		case 2:
-			mycamPtr=& camera2;
-			break;
-	}
-	return SetWhiteBal(mycamPtr,(unsigned short)val0, (unsigned short)val1);
+	//C1394Camera* mycamPtr=NULL;
+	//switch(camId){
+	//	case 0:
+	//		mycamPtr=&camera;
+	//		break;
+	//	case 1:
+	//		mycamPtr=&camera1;
+	//		break;
+	//	case 2:
+	//		mycamPtr=& camera2;
+	//		break;
+	//}
+	return SetWhiteBal(&camera,(unsigned short)val0, (unsigned short)val1);
 }
 
 void Sync1394Camera::DoManualAdjustments(camera_adjust_param_t *cam_param)

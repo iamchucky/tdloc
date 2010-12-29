@@ -8,8 +8,6 @@
 #define _WIN32_WINNT 0x0501	// Change this to the appropriate value to target other versions of Windows.
 #endif			
 
-#define UNDIST true		// Setting to undistort the camera to account for lens distortion.
-
 #include <stdio.h>
 #include <tchar.h>
 #include <string>
@@ -27,11 +25,11 @@
 using namespace std;
 
 //the name of the memory mapped file
-char szName[]="Global\\CamMappingObject";
+char szName[]="CamMappingObject";
 
-//undistortion map location for unibrain
-char mapxloc[]="..\\Unibrain\\mapx.xml";
-char mapyloc[]="..\\Unibrain\\mapy.xml";
+////undistortion map location for unibrain
+//char mapxloc[]="..\\Unibrain\\mapx.xml";
+//char mapyloc[]="..\\Unibrain\\mapy.xml";
 
 HANDLE hMapFile;
 HANDLE ghMutex;
@@ -186,7 +184,9 @@ int main(int argc, const char* argv[])
 
 
 	//finally, create a new camera
-	Sync1394Camera* cam = new Sync1394Camera ();
+	Sync1394Camera* cam0 = new Sync1394Camera ();
+	Sync1394Camera* cam1 = NULL;
+	Sync1394Camera* cam2 = NULL;
 	SyncCamParams s;
 
 	if (argc>1)
@@ -304,7 +304,7 @@ int main(int argc, const char* argv[])
 			s.syncCamInput = 1;
 		else			
 			s.syncCamInput = 0;
-		cam->idealMedian = 50;
+		cam0->idealMedian = 50;
 	}
 	else if (camtype == CAM_PROSILICA)
 	{
@@ -439,27 +439,29 @@ int main(int argc, const char* argv[])
 			imrgb = cvCreateImage (cvSize(WIDTH,HEIGHT),IPL_DEPTH_8U,3);
 		}
 	}		
-	IplImage* mapx;
-	IplImage* mapy;
+	//IplImage* mapx;
+	//IplImage* mapy;
 
-	if (UNDIST)
-	{
-		// Build the undistort map which we will use for all 
-		// subsequent frames.
-		//
-		mapx = cvCreateImage( cvGetSize(img), IPL_DEPTH_32F, 1 );
-		mapy = cvCreateImage( cvGetSize(img), IPL_DEPTH_32F, 1 );
-		mapx = (IplImage*)cvLoad(mapxloc);
-		mapy = (IplImage*)cvLoad(mapyloc);
-	}
+	//if (UNDIST)
+	//{
+	//	// Build the undistort map which we will use for all 
+	//	// subsequent frames.
+	//	//
+	//	mapx = cvCreateImage( cvGetSize(img), IPL_DEPTH_32F, 1 );
+	//	mapy = cvCreateImage( cvGetSize(img), IPL_DEPTH_32F, 1 );
+	//	mapx = (IplImage*)cvLoad(mapxloc);
+	//	mapy = (IplImage*)cvLoad(mapyloc);
+	//}
 	printf("Initializing camera....\n\n");
 	
 	
-	cam->InitCamera(0, s);
+	cam0->InitCamera(0, s);
 	if (camtype == CAM_FIREFLY)
 	{
-		cam->InitCamera(1, s);
-		cam->InitCamera(2, s);
+		cam1 = new Sync1394Camera ();
+		cam2 = new Sync1394Camera ();
+		cam1->InitCamera(1, s);
+		cam2->InitCamera(2, s);
 	}
 	Sleep(10);
 
@@ -509,13 +511,13 @@ int main(int argc, const char* argv[])
 	{	
 
 		//wait for an image
-		WaitForSingleObject (cam->cameraEvent,2000);
+		WaitForSingleObject (cam0->cameraEvent,2000);
 		if (camtype == CAM_FIREFLY)
 		{
-			WaitForSingleObject (cam->cameraEvent1,2000);
-			WaitForSingleObject (cam->cameraEvent2,2000);
+			WaitForSingleObject (cam1->cameraEvent,2000);
+			WaitForSingleObject (cam2->cameraEvent,2000);
 		}
-		if (((cam->buf) == NULL)||((camtype == CAM_FIREFLY)&&(((cam->buf1) == NULL)||((cam->buf2) == NULL))))
+		if (((cam0->buf) == NULL)||((camtype == CAM_FIREFLY)&&(((cam1->buf) == NULL)||((cam2->buf) == NULL))))
 		{
 			if (cvWaitKey (1)=='q')
 				running=false;
@@ -533,14 +535,19 @@ int main(int argc, const char* argv[])
 		LeaveCriticalSection(&csGui);
 		cam->DoManualAdjustments(mycamSetting);//*/
 
-		EnterCriticalSection(&cam->camgrab_cs);
+		EnterCriticalSection(&cam0->camgrab_cs);
+		if (camtype == CAM_FIREFLY)
+		{
+			EnterCriticalSection(&cam1->camgrab_cs);
+			EnterCriticalSection(&cam2->camgrab_cs);
+		}
 		if (s.isColor)
 		{
 			for (int i=0; i<WIDTH*HEIGHT; i++)
 			{				
-				img->imageData[(i*3)] =  (cam->buf[(i*3)+2]);
-				img->imageData[(i*3)+1] =(cam->buf[(i*3)+1]);
-				img->imageData[(i*3)+2] =(cam->buf[(i*3)]);
+				img->imageData[(i*3)] =  (cam0->buf[(i*3)+2]);
+				img->imageData[(i*3)+1] =(cam0->buf[(i*3)+1]);
+				img->imageData[(i*3)+2] =(cam0->buf[(i*3)]);
 			}
 		}		
 		else 
@@ -549,8 +556,8 @@ int main(int argc, const char* argv[])
 			{
 				for (int i=0; i<WIDTH*HEIGHT; i++)
 				{
-					if ((cam->buf) == NULL) {/*printf("WARNING BAD POINTER 2!\n");*/ continue;}
-					char shit = i[((char*)(cam->buf))];				
+					if ((cam0->buf) == NULL) {/*printf("WARNING BAD POINTER 2!\n");*/ continue;}
+					char shit = i[((char*)(cam0->buf))];				
 					img->imageData[i] = shit>255?255:shit;
 				}
 			}
@@ -561,46 +568,46 @@ int main(int argc, const char* argv[])
 				int row = 0;
 				for (int i=0; i<640*480; i++)
 				{
-					if ((cam->buf) == NULL) { continue;}
-					char shit = i[((char*)(cam->buf2))];	
-					char shit1 = i[((char*)(cam->buf1))];
-					char shit2 = i[((char*)(cam->buf))];
+					if ((cam0->buf) == NULL) { continue;}
+					char shit = i[((char*)(cam2->buf))];	
+					char shit1 = i[((char*)(cam1->buf))];
+					char shit2 = i[((char*)(cam0->buf))];
 					switch(camOrder)
 					{
 						case 12:
-							shit = i[((char*)(cam->buf))];
-							shit1 = i[((char*)(cam->buf1))];
-							shit2 = i[((char*)(cam->buf2))];
+							shit = i[((char*)(cam0->buf))];
+							shit1 = i[((char*)(cam1->buf))];
+							shit2 = i[((char*)(cam2->buf))];
 							break;
 						case 21:
-							shit = i[((char*)(cam->buf))];
-							shit1 = i[((char*)(cam->buf2))];
-							shit2 = i[((char*)(cam->buf1))];
+							shit = i[((char*)(cam0->buf))];
+							shit1 = i[((char*)(cam2->buf))];
+							shit2 = i[((char*)(cam1->buf))];
 							break;
 						case 120:
-							shit = i[((char*)(cam->buf1))];
-							shit1 = i[((char*)(cam->buf2))];
-							shit2 = i[((char*)(cam->buf))];
+							shit = i[((char*)(cam1->buf))];
+							shit1 = i[((char*)(cam2->buf))];
+							shit2 = i[((char*)(cam0->buf))];
 							break;
 						case 210:
-							shit = i[((char*)(cam->buf2))];
-							shit1 = i[((char*)(cam->buf1))];
-							shit2 = i[((char*)(cam->buf))];
+							shit = i[((char*)(cam2->buf))];
+							shit1 = i[((char*)(cam1->buf))];
+							shit2 = i[((char*)(cam0->buf))];
 							break;
 						case 102:
-							shit = i[((char*)(cam->buf1))];
-							shit1 = i[((char*)(cam->buf))];
-							shit2 = i[((char*)(cam->buf2))];
+							shit = i[((char*)(cam1->buf))];
+							shit1 = i[((char*)(cam0->buf))];
+							shit2 = i[((char*)(cam2->buf))];
 							break;
 						case 201:
-							shit = i[((char*)(cam->buf2))];
-							shit1 = i[((char*)(cam->buf))];
-							shit2 = i[((char*)(cam->buf1))];
+							shit = i[((char*)(cam2->buf))];
+							shit1 = i[((char*)(cam0->buf))];
+							shit2 = i[((char*)(cam1->buf))];
 							break;
 						default:
-							shit = i[((char*)(cam->buf))];
-							shit1 = i[((char*)(cam->buf1))];
-							shit2 = i[((char*)(cam->buf2))];
+							shit = i[((char*)(cam0->buf))];
+							shit1 = i[((char*)(cam1->buf))];
+							shit2 = i[((char*)(cam2->buf))];
 							break;
 					}
 
@@ -625,37 +632,42 @@ int main(int argc, const char* argv[])
 			}
 		}
 
-		double	timestamp = cam->curtimestamp;
+		double	timestamp = cam0->curtimestamp;
 		//double	timestamp;
 		//if(s.eTrigEnabled)
 		//	timestamp = timestampETG;
 		//else
 		//	timestamp = timestampACT;	
 		
-		LeaveCriticalSection(&cam->camgrab_cs);
+		LeaveCriticalSection(&cam0->camgrab_cs);
+		if (camtype == CAM_FIREFLY)
+		{
+			LeaveCriticalSection(&cam1->camgrab_cs);
+			LeaveCriticalSection(&cam2->camgrab_cs);
+		}
 
 
-//		if (WaitForSingleObject(ghMutex,5000)!=WAIT_OBJECT_0)
-//		{
-//			printf("Warning: Did not receive global map handle in 5 seconds...");
-//			continue;
-//		}
-//		/*if (camtype == CAM_FIREFLY)
-//			cvCvtColor(imgBW,img,CV_BayerBG2BGR);		// convert from Bayer to Color RGB*/
-//
-//		//dst src size
-//		if (upsidedown)
-//			cvFlip (img,img,-1);
-		if (UNDIST)
+		if (WaitForSingleObject(ghMutex,5000)!=WAIT_OBJECT_0)
+		{
+			printf("Warning: Did not receive global map handle in 5 seconds...");
+			continue;
+		}
+		/*if (camtype == CAM_FIREFLY)
+			cvCvtColor(imgBW,img,CV_BayerBG2BGR);		// convert from Bayer to Color RGB*/
+
+		//dst src size
+		if (upsidedown)
+			cvFlip (img,img,-1);
+		/*if (UNDIST)
 		{
 			IplImage *t = cvCloneImage(img);
 			cvRemap( t, img, mapx, mapy );
 			cvReleaseImage(&t);
-		}
+		}*/
 ////*		//cvShowImage("Test", img);
-//		CopyMemory(pBuf, img->imageData, WIDTH*HEIGHT*numChannels);		
-//		CopyMemory((char*)pBuf+(WIDTH*HEIGHT*numChannels), &timestamp,sizeof(double));
-//		ReleaseMutex(ghMutex);//*/
+		CopyMemory(pBuf, img->imageData, WIDTH*HEIGHT*numChannels);		
+		CopyMemory((char*)pBuf+(WIDTH*HEIGHT*numChannels), &timestamp,sizeof(double));
+		ReleaseMutex(ghMutex);//*/
 
 		//GUI stuffs
 /*		if(display_image){
@@ -698,31 +710,31 @@ int main(int argc, const char* argv[])
 				currentCamSelect=2;
 				break;
 			case 'n':
-				cam->GetWhiteBal(currentCamSelect,&wb_wr,&wb_wb);
+				cam0->GetWhiteBal(currentCamSelect,&wb_wr,&wb_wb);		// currently only print cam0
 				wb_wr-=wbStep;
 				if(wb_wr<WB_MIN) wb_wr=WB_MIN;
-				cam->SetWhiteBal(currentCamSelect,wb_wr,wb_wb);
+				cam0->SetWhiteBal(currentCamSelect,wb_wr,wb_wb);
 				printf("White balance: cam%d: %d, %d\n",currentCamSelect,wb_wr,wb_wb);
 				break;
 			case 'm':
-				cam->GetWhiteBal(currentCamSelect,&wb_wr,&wb_wb);
+				cam0->GetWhiteBal(currentCamSelect,&wb_wr,&wb_wb);
 				wb_wr+=wbStep;
 				if(wb_wr>WB_MAX) wb_wr=WB_MAX;
-				cam->SetWhiteBal(currentCamSelect,wb_wr,wb_wb);
+				cam0->SetWhiteBal(currentCamSelect,wb_wr,wb_wb);
 				printf("White balance: cam%d: %d, %d\n",currentCamSelect,wb_wr,wb_wb);
 				break;
 			case ',':
-				cam->GetWhiteBal(currentCamSelect,&wb_wr,&wb_wb);
+				cam0->GetWhiteBal(currentCamSelect,&wb_wr,&wb_wb);
 				wb_wb-=wbStep;
 				if(wb_wb<WB_MIN) wb_wb=WB_MIN;
-				cam->SetWhiteBal(currentCamSelect,wb_wr,wb_wb);
+				cam0->SetWhiteBal(currentCamSelect,wb_wr,wb_wb);
 				printf("White balance: cam%d: %d, %d\n",currentCamSelect,wb_wr,wb_wb);
 				break;
 			case '.':
-				cam->GetWhiteBal(currentCamSelect,&wb_wr,&wb_wb);
+				cam0->GetWhiteBal(currentCamSelect,&wb_wr,&wb_wb);
 				wb_wb+=wbStep;
 				if(wb_wb>WB_MAX) wb_wb=WB_MAX;
-				cam->SetWhiteBal(currentCamSelect,wb_wr,wb_wb);
+				cam0->SetWhiteBal(currentCamSelect,wb_wr,wb_wb);
 				printf("White balance: cam%d: %d, %d\n",currentCamSelect,wb_wr,wb_wb);
 				break;
 			case 'b':
@@ -734,7 +746,7 @@ int main(int argc, const char* argv[])
 		frameNum++;	
 
 		if(DISPLAY_ON && display_image){
-			if(frameNum%3!=0) continue; 
+			/*if(frameNum%3!=0) continue; */
 		/*
 		cvNamedWindow ("CameraServer. q to quit");
 		cvResizeWindow("Click Me + q to quit",200,0);//*/
@@ -771,6 +783,11 @@ int main(int argc, const char* argv[])
 	CloseHandle(hMapFile);
 	CloseHandle(close_event);
 	DeleteCriticalSection(&csGui);
-	delete cam;
+	delete cam0;
+	if (camtype == CAM_FIREFLY)
+	{
+		delete cam1;
+		delete cam2;
+	}
 	Sleep(1000);
 }
