@@ -1,1 +1,10 @@
-testing
+This is a project for Windows 7 x64 system to achieve "fake GPS" system for robot localization.
+Following libraries are used and is compiled from source to work with windows 7 x64:
+
+- CMU 1394 driver*
+- ARToolKitPlus
+- OpenCV 2.2
+
+* To install CMU 1394 driver x64 that I compiled, you would need to disable Windows 7's code signing enforcement by entering testing mode by running dseo13b.exe under 1394camera/1394CMUdriver/, more detail can be found here: http://www.ngohq.com/home.php?page=dseo
+
+last updated: 12/30/2010
