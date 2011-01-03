@@ -133,24 +133,6 @@ struct SyncCamParams
 	}
 };
 
-struct camera_adjust_param_t
-{
-	int getShutter;
-	int getGain;
-	int getWhiteBal;
-	int getMedian;
-	int getBrightness;
-	int getError;
-
-	int setShutter;
-	int setGain;
-	int setWhiteBal;
-
-
-	bool updateCamera;
-
-};
-
 #pragma pack (1)
 struct SyncCamPacket
 {
@@ -200,8 +182,6 @@ public:
 	float kp;
 	int idealMedian;
 	CRITICAL_SECTION camgrab_cs;
-	void DoManualAdjustments(camera_adjust_param_t *cam_param);
-	
 	
 private:
 	static int shortComp (const void* a, const void* b);

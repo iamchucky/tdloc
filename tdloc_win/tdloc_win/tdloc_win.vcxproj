@@ -20,7 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camera\AutoWhiteBal.cpp" />
-    <ClCompile Include="camera\autoWhiteBalance.cpp" />
     <ClCompile Include="camera\simplejpeg.cpp" />
     <ClCompile Include="camera\sync1394camera.cpp" />
     <ClCompile Include="camera\udpCameraBroadcaster.cpp" />
@@ -30,7 +29,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera\AutoWhiteBal.h" />
-    <ClInclude Include="camera\autoWhiteBalance.h" />
     <ClInclude Include="camera\simplejpeg.h" />
     <ClInclude Include="camera\sync1394camera.h" />
     <ClInclude Include="camera\udpCameraBroadcaster.h" />

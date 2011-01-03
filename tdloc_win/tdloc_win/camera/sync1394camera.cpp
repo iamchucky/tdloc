@@ -7,53 +7,54 @@ DWORD WINAPI CamThreadWrap(LPVOID t)
 	return ((Sync1394Camera*)t)->CamThread();
 }
 
-int bullshit= 0;
+int fcount= 0;
 DWORD Sync1394Camera::CamThread ()
 {
 	//init white balance************************************************
 	bool iswbconverged=0;
 	int wbFreq = 10;
-	IplImage* mapx;
-	IplImage* mapy;
-
-	if (UNDIST)
-	{
-		// Build the undistort map which we will use for all 
-		// subsequent frames.
-		//
-		mapx = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
-		mapy = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
-		mapx = (IplImage*)cvLoad("..\\Unibrain\\mapx.xml");
-		mapy = (IplImage*)cvLoad("..\\Unibrain\\mapy.xml");
-	}
-
 	CAutoWhiteBal m_wbal;
 	unsigned short r_gain,b_gain;
 	unsigned short r_gain_old,b_gain_old;
 	IplImage *wbim = cvCreateImage(cvSize(config.width,config.height),8,1);	
 	IplImage *wbrgb = cvCreateImage(cvSize(config.width,config.height),8,3);
-	IplImage *undist_src = cvCreateImage(cvSize(config.width,config.height),8,3);	
-	IplImage *undist_dst = cvCreateImage(cvSize(config.width,config.height),8,3);
 	m_wbal.InitInstance(cvSize(config.width,config.height));	
 	//******************************************************************
+
+	//init undistortion*************************************************
+	IplImage* mapx;
+	IplImage* mapy;
+	if (UNDIST)
+	{
+		// Build the undistort map which we will use for all 
+		// subsequent frames.
+		mapx = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
+		mapy = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
+		mapx = (IplImage*)cvLoad("..\\Unibrain\\mapx.xml");
+		mapy = (IplImage*)cvLoad("..\\Unibrain\\mapy.xml");
+	}
+	IplImage *undist_src = cvCreateImage(cvSize(config.width,config.height),8,3);	
+	IplImage *undist_dst = cvCreateImage(cvSize(config.width,config.height),8,3);
+	//******************************************************************
+
 	printf("Cam Thread Started\n\n");
 	while(isRunning) 
 	{	
 		// camera 0
 		C1394Camera* camptr = &camera;
-		bullshit++;
+		fcount++;
 		unsigned long dlength=0;			
 		//float pgain = .01f;
 		int dFrames=0;
 
 		if (CAM_SUCCESS != camptr->AcquireImageEx(TRUE,&dFrames))
 		{
-			if (bullshit %100==0)
-				printf("COULD NOT AQUIRE AN IMAGE FROM THE CAMERA 0.\n");			
+			if (fcount %100==0)
+				printf("COULD NOT AQUIRE AN IMAGE FROM THE CAMERA %d.\n", camId);			
 			//this->buf = NULL;			
 			//while(1);
 		}
-		if (dFrames>0) printf ("DROPPED %d FRAMES! 0\n",dFrames);
+		if (dFrames>0) printf ("DROPPED %d FRAMES! %d\n",dFrames, camId);
 
 		EnterCriticalSection(&camgrab_cs);		
 		if (config.isColor)
@@ -71,7 +72,7 @@ DWORD Sync1394Camera::CamThread ()
 			continue;
 		}
 
-		if ((bullshit %100==0) && (!config.AGC))
+		if ((fcount %100==0) && (!config.AGC))
 		{
 			printf(".");
 		}
@@ -85,7 +86,7 @@ DWORD Sync1394Camera::CamThread ()
 
 		if ((config.AGC) && (config.isSlave == false))
 		{
-			if (bullshit%3 == 0)
+			if (fcount%3 == 0)
 			{
 
 #if AUTOGAIN_USE_MEDIAN
@@ -119,16 +120,11 @@ DWORD Sync1394Camera::CamThread ()
 				int newbright = (int)GetBright(camptr) - (int) (error*beffort);
 				/*if ((int)GetBright(camptr) != newbright)
 					SetBright (camptr,newbright);*/
-				if (bullshit %100==0)
+				if (fcount %100==0)
 				{
 					printf("CAM0 AGC: Median: %d Brightness: %d Gain: %d Shutter: %d Error: %f\n",median,newbright,newgain,newShutter,error);
 				}
 			}
-				/*camSettings[0].getMedian=median;
-				camSettings[0].getBrightness = newbright;
-				camSettings[0].getGain = newgain;
-				camSettings[0].getShutter=newShutter;
-				camSettings[0].getError=error;//*/
 		
 			if(config.AutoWB)
 			{
@@ -141,7 +137,7 @@ DWORD Sync1394Camera::CamThread ()
 				{
 					wbFreq=1;
 				}
-				if(bullshit%wbFreq==0)
+				if(fcount%wbFreq==0)
 				{
 					//cvShowImage("teest",wbim);cvWaitKey(10);
 					memcpy(wbim->imageData,buf,config.width*config.height);
@@ -162,8 +158,6 @@ DWORD Sync1394Camera::CamThread ()
 				}
 			}
 			
-
-			
 #else
 			int maxedOutPixels = GetNumMaxedPixelsInBuf(config.AGCtop,config.AGCbot);
 			if (maxedOutPixels != -1)
@@ -177,28 +171,10 @@ DWORD Sync1394Camera::CamThread ()
 			}
 #endif
 		}
-
-		/*if (config.syncEnabled) //are we using timing?
-		{
-			if ((expSeqNumber != 0) && (curSeqNumber != expSeqNumber))
-			{
-				//interpolate the correct timestamp
-				float expInterval = 1.0f/(float)config.syncFPS;				
-				//printf("WARNING: Sequence number mismatch: Got: %d Expected %d \nCurTime: %f Interval: %f ProjTime: %f \n",curSeqNumber, expSeqNumber,curtimestamp,expInterval,expInterval + curtimestamp);
-				curtimestamp += expInterval;		
-			}
-			expSeqNumber = curSeqNumber + 1;
-
-		}	*/
-		
-
-		//output data
-//		camSettings[0].getWhiteBal = SetAutoWhiteBal(camptr);
-		
 	}
 	cvReleaseImage(&undist_src);
 	cvReleaseImage(&undist_dst);
-	printf("\nCam Thread Ended\n");
+	printf("\nCam %d Thread Ended\n", camId);
 	return 0;
 }
 
@@ -498,7 +474,7 @@ int Sync1394Camera::GetNumMaxedPixelsInBuf (unsigned char* buf, int top, int bot
 
 Sync1394Camera::~Sync1394Camera()
 {	
-	isRunning = false;
+	
 
 	WaitForSingleObject (cameraHandle,INFINITE);
 	printf("Terminating SyncCam\n");
@@ -512,13 +488,15 @@ Sync1394Camera::~Sync1394Camera()
 		delete udpRX;
 		delete udpTX;
 	}
-	DeleteCriticalSection (&camgrab_cs);
+	if (isRunning)
+		DeleteCriticalSection (&camgrab_cs);
+	isRunning = false;
 }
 bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config) 
 {
 	C1394Camera* camptr;
 	
-	isRunning = true;
+	isRunning = false;
 	Sync1394Camera::config = m_config;	
 	int effWidth = config.partialWidth;
 	int effHeight = config.partialHeight;
@@ -850,9 +828,9 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 	}
 
 	InitializeCriticalSection(&camgrab_cs);
+	isRunning = true;
 
 	cameraHandle = CreateThread(NULL, 0, CamThreadWrap, this, 0, NULL);
-
 
 	//Sleep(2000);//starting...
 	//SetThreadPriority(cameraHandle, THREAD_PRIORITY_HIGHEST);
@@ -880,22 +858,6 @@ void Sync1394Camera::UDPCallback(udp_message& msg, udp_connection* conn, void* a
 	//printf ("sec: %d ticks: %d sync: %d\n",packet.seconds,packet.ticks,packet.seqNum);
 }
 
-int Sync1394Camera::SetAutoWhiteBal(C1394Camera* camptr)
-{
-	unsigned short val = 0;
-/*
-	if (config.isSlave) return 0 ;
-	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_WHITE_BALANCE);
-	
-	if(!ctrl->StatusAutoMode())
-		ctrl->SetAutoMode(1);
-
-	
-	ctrl->GetValue(&val,NULL);//*/
-//*/
-	return (int)val;
-}
-
 int Sync1394Camera::GetWhiteBal(C1394Camera* camptr, unsigned short *val0, unsigned short *val1)
 {
 	if (config.isSlave) return 0 ;
@@ -907,224 +869,10 @@ int Sync1394Camera::GetWhiteBal(C1394Camera* camptr, unsigned short *val0, unsig
 //*/
 }
 
-int Sync1394Camera::GetWhiteBal(int camId, int *val0, int *val1)
-{
-	//C1394Camera* mycamPtr=NULL;
-	//switch(camId){
-	//	case 0:
-	//		mycamPtr=&camera;
-	//		break;
-	//	case 1:
-	//		mycamPtr=&camera1;
-	//		break;
-	//	case 2:
-	//		mycamPtr=&camera2;
-	//		break;
-	//}
-	return GetWhiteBal(&camera, (unsigned short*)val0, (unsigned short*)val1);
-}
-
-
-
 int Sync1394Camera::SetWhiteBal(C1394Camera* camptr, unsigned short val0, unsigned short val1)
 {
-//*
 	if (config.isSlave) return 0 ;
 	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_WHITE_BALANCE);
 	return ctrl->SetValue(val0,val1);	
-//*/	
 }
 
-int Sync1394Camera::SetWhiteBal(int camId, int val0, int val1)
-{
-	//C1394Camera* mycamPtr=NULL;
-	//switch(camId){
-	//	case 0:
-	//		mycamPtr=&camera;
-	//		break;
-	//	case 1:
-	//		mycamPtr=&camera1;
-	//		break;
-	//	case 2:
-	//		mycamPtr=& camera2;
-	//		break;
-	//}
-	return SetWhiteBal(&camera,(unsigned short)val0, (unsigned short)val1);
-}
-
-void Sync1394Camera::DoManualAdjustments(camera_adjust_param_t *cam_param)
-{
-	/*static unsigned long count;
-	count ++;
-	if(count%100 !=0)
-		return;
-
-	camera_adjust_param_t mycam_param[3];
-	memcpy(&mycam_param, cam_param, sizeof(mycam_param));
-
-	for(int camId=0;camId<3;camId++){
-		if(cam_param[camId].updateCamera){
-			cam_param[camId].updateCamera=0;
-			//***set white balance***
-			if(cam_param[camId].setWhiteBal==0){
-				switch(camId){
-					case 0:
-						SetAutoWhiteBal(&camera);
-						break;
-					case 1:
-						SetAutoWhiteBal(&camera1);
-						break;
-					case 2:
-						SetAutoWhiteBal(&camera2);
-						break;
-				}//end switch
-				
-			}
-			else{
-				switch(camId){
-					case 0:
-						SetWhiteBal(&camera,mycam_param[camId].setWhiteBal);
-						break;
-					case 1:
-						SetWhiteBal(&camera1,mycam_param[camId].setWhiteBal);
-						break;
-					case 2:
-						SetWhiteBal(&camera2,mycam_param[camId].setWhiteBal);
-						break;
-				}//end switch
-				
-			}
-			//***set shutter***
-			if(cam_param[camId].setShutter==0){
-				//set auto shutter
-			}
-			else{
-				//set shutter
-			}
-			//***set gain***
-			if(cam_param[camId].setShutter==0){
-				//set auto gain
-			}
-			else{
-				//set gain
-			}
-		}//end if(cam_param[camId].updateCamera){
-	}//end for(int camId=0;camId<3;camId++){//*/
-}
-
-int Sync1394Camera::DoAutoWhiteBal(C1394Camera* camptr, unsigned char* buf)
-{
-	
-
-	return 0;
-}
-//*
-
-
-int Sync1394Camera::DoAutoWhiteBalance(C1394Camera* camPtr, IplImage *im, unsigned short *wr, unsigned short *wb)
-{
-	/*if(im->nChannels!=3){
-		printf("White Balance error. Colour image not detected!\n");
-		return -1;
-	}
-	unsigned short r_gain,b_gain;
-	unsigned short r_gain_old,b_gain_old;
-	m_wbal[0].InitInstance(cvSize(im->width,im->height));
-
-
-	GetWhiteBal(camPtr, &r_gain, &b_gain);
-	r_gain_old=r_gain;
-	b_gain_old=b_gain;
-	m_wbal[0].RunAWB(im, &r_gain, &b_gain);
-	SetWhiteBal(camPtr, r_gain, b_gain);
-
-	//printf("white balance: %d->%d %d->%d\n",r_gain_old,r_gain,b_gain_old,b_gain);
-*/
-	return 0;
-
-
-	unsigned short old_wr;
-	unsigned short old_wb;
-	int i,j,ptr;
-	float rSum=0;
-	float gSum=0;
-	float bSum=0;
-	float rAve=0;
-	float gAve=0;
-	float bAve=0;
-	int pixCount=0;
-	const float thresh = 10.0f;
-	const float gain=1;
-	const int halfSize = 100;
-	bool bupdateWhiteBalance=0;
-	CvRect roi;
-	float fwr,fwb;
-
-	
-	if(im->nChannels!=3){
-		printf("White Balance error. Colour image not detected!\n");
-		return -1;
-	}
-
-	
-	//create region of interest for white balance probing
-	roi.x=config.width/2-halfSize;
-	roi.y=config.height/2-halfSize;
-	roi.width=halfSize*2;
-	roi.height=halfSize*2;
-
-	CvPoint topLeft= cvPoint(roi.x,roi.y);
-	CvPoint botRight=cvPoint(roi.x+roi.width,roi.y+roi.height);
-	
-	//cvShowImage("test",im); cvWaitKey(10);
-	//return 0;
-	//get average values
-	for(i=topLeft.y;i<botRight.y;i++){	//horizontal
-		for(j=topLeft.x;j<botRight.x;j++){	//vertical
-			ptr=3*(j*roi.width+i);
-			rSum+= (unsigned char)im->imageData[ptr];
-			gSum+= (unsigned char)im->imageData[ptr+1];
-			bSum+= (unsigned char)im->imageData[ptr+2];
-			pixCount++;
-		}	
-	}
-	//get average
-	rAve=rSum/pixCount;
-	gAve=gSum/pixCount;
-	bAve=bSum/pixCount;
-
-	//get current white balance
-	GetWhiteBal(camPtr,wr,wb);
-	old_wr=*wr;
-	old_wb=*wb;
-
-	//control color balance
-	if((rAve-gAve)<-thresh){
-		//fwbr += wr + gain;
-		*wr += (int)(*wr - gain);
-		bupdateWhiteBalance=1;
-	}
-	else if((rAve-gAve)>thresh){
-		//fwbr += fwbr-gain;
-
-		*wr += (int)*wr + gain;
-		bupdateWhiteBalance=1;
-	}
-
-	if(bAve-gAve<-thresh){
-		*wb = *wb + gain;
-		bupdateWhiteBalance=1;
-	}
-	else if(bAve-gAve>thresh){
-		*wb = *wb - gain;
-		bupdateWhiteBalance=1;
-	}
-
-	
-	SetWhiteBal(camPtr,*wr,*wb);
-	printf("white balance: %d->%d %d->%d\n",old_wr,*wr,old_wb,*wb);
-
-	
-	return 0;
-}
-//*

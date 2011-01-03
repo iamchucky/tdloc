@@ -39,9 +39,6 @@
     <ClCompile Include="camera\AutoWhiteBal.cpp">
       <Filter>Source Files\camera</Filter>
     </ClCompile>
-    <ClCompile Include="camera\autoWhiteBalance.cpp">
-      <Filter>Source Files\camera</Filter>
-    </ClCompile>
     <ClCompile Include="camera\simplejpeg.cpp">
       <Filter>Source Files\camera</Filter>
     </ClCompile>
@@ -64,9 +61,6 @@
     </ClInclude>
     <ClInclude Include="network\udp_connection.h">
       <Filter>Header Files\network</Filter>
-    </ClInclude>
-    <ClInclude Include="camera\autoWhiteBalance.h">
-      <Filter>Header Files\camera</Filter>
     </ClInclude>
     <ClInclude Include="camera\simplejpeg.h">
       <Filter>Header Files\camera</Filter>
