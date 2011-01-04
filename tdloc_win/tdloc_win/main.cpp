@@ -3,6 +3,7 @@
 //Accurately synchronizes the camera with
 //the pulse coming from the timing system.
 #define DISPLAY_ON 1
+#define NUM_CAM 1
 
 #ifndef _WIN32_WINNT		// Allow use of features specific to Windows XP or later.                   
 #define _WIN32_WINNT 0x0501	// Change this to the appropriate value to target other versions of Windows.
@@ -48,7 +49,8 @@ unsigned int frameNum=0;
 double lasttime=0;
 
 //captures the closing of the console window and closes the app appropriately
-BOOL WINAPI handler_routine(DWORD dwCtrlType) {
+BOOL WINAPI handler_routine(DWORD dwCtrlType) 
+{
 	BOOL ret = FALSE;
 	SetEvent(close_event);
 	running = false;
@@ -120,7 +122,7 @@ int main(int argc, const char* argv[])
 		s.videoFrameRate = 3;
 		s.BitDepth16 = false;
 		s.usePartialScan = false; 
-		s.syncEnabled = false;  //DEBUG DEBUG DEBUG
+		s.syncEnabled = false;
 		s.partialHeight = 480; 
 		s.partialWidth = 640;
 		s.syncFPS = 30; 
@@ -200,17 +202,21 @@ int main(int argc, const char* argv[])
 	//---------------------MAIN LOOP---------------------------------
 	while(running)
 	{	
-
+		bool ready = true;
 		//wait for an image
-		if (WaitForSingleObject (cam[0]->cameraEvent,2000) == WAIT_TIMEOUT)
+		for (int n = 0; n < NUM_CAM; ++n)
+		{
+			if (WaitForSingleObject (cam[n]->cameraEvent,2000) != WAIT_OBJECT_0)
+			{
+				ready = false;
+			}
+		}
+
+		if (!ready)
 		{
 			continue;
 		}
-		if (camtype == CAM_FIREFLY)
-		{
-			WaitForSingleObject (cam[1]->cameraEvent,2000);
-			WaitForSingleObject (cam[2]->cameraEvent,2000);
-		}
+
 		if (((cam[0]->buf) == NULL)||((camtype == CAM_FIREFLY)&&(((cam[1]->buf) == NULL)||((cam[2]->buf) == NULL))))
 		{
 			if (cvWaitKey (1)=='q')

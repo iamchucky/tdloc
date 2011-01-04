@@ -20,23 +20,17 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camera\AutoWhiteBal.cpp" />
-    <ClCompile Include="camera\simplejpeg.cpp" />
     <ClCompile Include="camera\sync1394camera.cpp" />
-    <ClCompile Include="camera\udpCameraBroadcaster.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="network\net_utility.cpp" />
     <ClCompile Include="network\udp_connection.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera\AutoWhiteBal.h" />
-    <ClInclude Include="camera\simplejpeg.h" />
     <ClInclude Include="camera\sync1394camera.h" />
-    <ClInclude Include="camera\udpCameraBroadcaster.h" />
     <ClInclude Include="network\net_utility.h" />
     <ClInclude Include="network\udp_connection.h" />
     <ClInclude Include="network\udp_message.h" />
-    <ClInclude Include="utility\FastDelegate.h" />
-    <ClInclude Include="utility\FixedQueue.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{A050B7D7-7057-4792-A2E8-8945BB95ACED}</ProjectGuid>

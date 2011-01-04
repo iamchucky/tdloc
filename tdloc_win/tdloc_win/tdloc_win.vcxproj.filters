@@ -13,72 +13,51 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Source Files\network">
-      <UniqueIdentifier>{88f90fba-de4c-4038-9249-8f661aa3168d}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\network">
-      <UniqueIdentifier>{6eb570d0-ee63-4b06-a933-14dedd379022}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\camera">
       <UniqueIdentifier>{87f0ee9d-b7e7-4459-b256-9d368022f588}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\camera">
       <UniqueIdentifier>{d367ccf2-bcc5-4745-be8b-85167ff23d4a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\utility">
-      <UniqueIdentifier>{5263f953-85c3-4341-88ec-a3484810ae12}</UniqueIdentifier>
+    <Filter Include="Header Files\network">
+      <UniqueIdentifier>{90f6c1ab-67a6-4e9e-8ba3-98cb669eaf2e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\network">
+      <UniqueIdentifier>{07dcfb31-f830-4786-8ef7-079fa98100b6}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="camera\AutoWhiteBal.cpp">
+      <Filter>Source Files\camera</Filter>
+    </ClCompile>
+    <ClCompile Include="camera\sync1394camera.cpp">
+      <Filter>Source Files\camera</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="network\net_utility.cpp">
       <Filter>Source Files\network</Filter>
     </ClCompile>
     <ClCompile Include="network\udp_connection.cpp">
       <Filter>Source Files\network</Filter>
     </ClCompile>
-    <ClCompile Include="camera\AutoWhiteBal.cpp">
-      <Filter>Source Files\camera</Filter>
-    </ClCompile>
-    <ClCompile Include="camera\simplejpeg.cpp">
-      <Filter>Source Files\camera</Filter>
-    </ClCompile>
-    <ClCompile Include="camera\sync1394camera.cpp">
-      <Filter>Source Files\camera</Filter>
-    </ClCompile>
-    <ClCompile Include="camera\udpCameraBroadcaster.cpp">
-      <Filter>Source Files\camera</Filter>
-    </ClCompile>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="network\net_utility.h">
-      <Filter>Header Files\network</Filter>
-    </ClInclude>
-    <ClInclude Include="network\udp_message.h">
-      <Filter>Header Files\network</Filter>
-    </ClInclude>
-    <ClInclude Include="network\udp_connection.h">
-      <Filter>Header Files\network</Filter>
-    </ClInclude>
-    <ClInclude Include="camera\simplejpeg.h">
-      <Filter>Header Files\camera</Filter>
-    </ClInclude>
     <ClInclude Include="camera\sync1394camera.h">
-      <Filter>Header Files\camera</Filter>
-    </ClInclude>
-    <ClInclude Include="camera\udpCameraBroadcaster.h">
       <Filter>Header Files\camera</Filter>
     </ClInclude>
     <ClInclude Include="camera\AutoWhiteBal.h">
       <Filter>Header Files\camera</Filter>
     </ClInclude>
-    <ClInclude Include="utility\FastDelegate.h">
-      <Filter>Header Files\utility</Filter>
+    <ClInclude Include="network\net_utility.h">
+      <Filter>Header Files\network</Filter>
     </ClInclude>
-    <ClInclude Include="utility\FixedQueue.h">
-      <Filter>Header Files\utility</Filter>
+    <ClInclude Include="network\udp_connection.h">
+      <Filter>Header Files\network</Filter>
+    </ClInclude>
+    <ClInclude Include="network\udp_message.h">
+      <Filter>Header Files\network</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -866,7 +866,6 @@ int Sync1394Camera::GetWhiteBal(C1394Camera* camptr, unsigned short *val0, unsig
 	
 	ctrl->GetValue((unsigned short*)val0,(unsigned short*)val1);
 	return 0;
-//*/
 }
 
 int Sync1394Camera::SetWhiteBal(C1394Camera* camptr, unsigned short val0, unsigned short val1)
