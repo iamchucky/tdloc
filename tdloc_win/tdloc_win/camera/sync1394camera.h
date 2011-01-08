@@ -186,7 +186,7 @@ public:
 private:
 	static int shortComp (const void* a, const void* b);
 	static int charComp (const void* a, const void* b);
-	static C1394Camera camera;
+	C1394Camera camera;
 
 	//CAutoWhiteBal m_wbal[3];
 

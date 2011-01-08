@@ -1,15 +1,18 @@
 #include "sync1394camera.h"
-
-C1394Camera Sync1394Camera::camera;
+#define DEBUG_SYNC1394 0
+//C1394Camera Sync1394Camera::camera;
 
 DWORD WINAPI CamThreadWrap(LPVOID t)
 {
 	return ((Sync1394Camera*)t)->CamThread();
 }
 
-int fcount= 0;
+IplImage* mapx;
+IplImage* mapy;
+bool undist_init = false;
 DWORD Sync1394Camera::CamThread ()
 {
+	int fcount= 0;
 	//init white balance************************************************
 	bool iswbconverged=0;
 	int wbFreq = 10;
@@ -22,22 +25,24 @@ DWORD Sync1394Camera::CamThread ()
 	//******************************************************************
 
 	//init undistortion*************************************************
-	IplImage* mapx;
-	IplImage* mapy;
 	if (UNDIST)
 	{
-		// Build the undistort map which we will use for all 
-		// subsequent frames.
-		mapx = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
-		mapy = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
-		mapx = (IplImage*)cvLoad("..\\Unibrain\\mapx.xml");
-		mapy = (IplImage*)cvLoad("..\\Unibrain\\mapy.xml");
+		if (!undist_init)
+		{
+			// Build the undistort map which we will use for all 
+			// subsequent frames.
+			mapx = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
+			mapy = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
+			mapx = (IplImage*)cvLoad("..\\Unibrain\\mapx.xml");
+			mapy = (IplImage*)cvLoad("..\\Unibrain\\mapy.xml");
+			undist_init = true;
+		}
 	}
 	IplImage *undist_src = cvCreateImage(cvSize(config.width,config.height),8,3);	
 	IplImage *undist_dst = cvCreateImage(cvSize(config.width,config.height),8,3);
 	//******************************************************************
 
-	printf("Cam Thread Started\n\n");
+	printf("Cam %d Thread Started\n\n", camId);
 	while(isRunning) 
 	{	
 		// camera 0
@@ -54,7 +59,7 @@ DWORD Sync1394Camera::CamThread ()
 			//this->buf = NULL;			
 			//while(1);
 		}
-		if (dFrames>0) printf ("DROPPED %d FRAMES! %d\n",dFrames, camId);
+		if (dFrames>0 && fcount>1) printf ("DROPPED %d FRAMES! %d\n",dFrames, camId);
 
 		EnterCriticalSection(&camgrab_cs);		
 		if (config.isColor)
@@ -66,7 +71,7 @@ DWORD Sync1394Camera::CamThread ()
 			camptr = &camera;
 			buf = camptr->GetRawData (&dlength);
 		}
-		LeaveCriticalSection(&camgrab_cs);
+		
 		if (0 == dlength) 
 		{			
 			continue;
@@ -82,6 +87,7 @@ DWORD Sync1394Camera::CamThread ()
 			cvRemap( undist_src, undist_dst, mapx, mapy );
 			memcpy(buf,undist_dst->imageData,config.width*config.height*3);
 		}
+		LeaveCriticalSection(&camgrab_cs);
 		SetEvent (cameraEvent);	
 
 		if ((config.AGC) && (config.isSlave == false))
@@ -172,6 +178,8 @@ DWORD Sync1394Camera::CamThread ()
 #endif
 		}
 	}
+	cvReleaseImage(&wbim);
+	cvReleaseImage(&wbrgb);
 	cvReleaseImage(&undist_src);
 	cvReleaseImage(&undist_dst);
 	printf("\nCam %d Thread Ended\n", camId);
@@ -474,10 +482,14 @@ int Sync1394Camera::GetNumMaxedPixelsInBuf (unsigned char* buf, int top, int bot
 
 Sync1394Camera::~Sync1394Camera()
 {	
+	if (isRunning)
+	{
+		isRunning = false;
 	
-
-	WaitForSingleObject (cameraHandle,INFINITE);
-	printf("Terminating SyncCam\n");
+		WaitForSingleObject (cameraHandle,INFINITE);
+		printf("Terminating SyncCam\n");
+		DeleteCriticalSection (&camgrab_cs);
+	}
 	if (config.syncEnabled )
 	{
 		if ((config.syncKillOnClose) && (config.isSlave==false))
@@ -488,9 +500,6 @@ Sync1394Camera::~Sync1394Camera()
 		delete udpRX;
 		delete udpTX;
 	}
-	if (isRunning)
-		DeleteCriticalSection (&camgrab_cs);
-	isRunning = false;
 }
 bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config) 
 {
@@ -522,7 +531,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 		return false; 
 	}
 	camId = cameraID;
-	if(camptr->InitCamera()!=CAM_SUCCESS)	
+	if(camptr->InitCamera(true)!=CAM_SUCCESS)	
 	{	
 		printf("Could not init camera\n" ); 
 		return false; 
@@ -611,7 +620,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 		}
 		unsigned short gainval = 0;
 		ctrl->GetValue(&gainval);
-		printf("gain: %d\n",gainval);
+		if (DEBUG_SYNC1394) printf("gain: %d\n",gainval);
 	}
 	else
 	{
@@ -623,14 +632,14 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 		}
 		if (ctrl->StatusAutoMode() == true)
 		{	
-			printf("AutoGain successfully set!\n");
+			if (DEBUG_SYNC1394) printf("AutoGain successfully set!\n");
 		}
 	}
 	
 	minGain=0;
 	maxGain=0;
 	GetGainMinMax( camptr, &minGain, &maxGain);
-	printf("Min gain: %d, Max gain: %d\n",minGain,maxGain);
+	if (DEBUG_SYNC1394) printf("Min gain: %d, Max gain: %d\n",minGain,maxGain);
 	
 	if (!config.AutoShutter)
 	{
@@ -659,7 +668,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 		}
 		if (ctrl->StatusAutoMode() == true)
 		{	
-			printf("AutoShutter successfully set!\n");
+			if (DEBUG_SYNC1394) printf("AutoShutter successfully set!\n");
 		}
 	}
 
@@ -677,7 +686,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 		}
 		unsigned short bval = 0;
 		ctrl->GetValue(&bval);
-		printf("brightness: %d\n",bval);
+		if (DEBUG_SYNC1394) printf("brightness: %d\n",bval);
 	}
 	else
 	{
@@ -689,7 +698,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 		}
 		if (ctrl->StatusAutoMode() == true)
 		{	
-			printf("AutoBrightness successfully set!\n");
+			if (DEBUG_SYNC1394) printf("AutoBrightness successfully set!\n");
 		}
 	}
 	
@@ -709,7 +718,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 	minShutter=0;
 	maxShutter=0;
 	GetShutterMinMax(camptr, &minShutter, &maxShutter);
-	printf("Min shutter: %d, Max shutter: %d\n",minShutter,maxShutter);
+	if (DEBUG_SYNC1394) printf("Min shutter: %d, Max shutter: %d\n",minShutter,maxShutter);
 
 	if (config.adjWB)
 	{
@@ -720,7 +729,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 		}
 	}
 	
-	printf("Completed Init of Camera\n");
+	printf("\nCompleted Init of Camera %d\n", camId);
 
 	if (config.eTrigEnabled)
 	{
@@ -798,10 +807,10 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 						printf("Could Not Set Trigger ON!\n");
 				}
 			}
-			printf("Timing Initialized.\n");	
+			if (DEBUG_SYNC1394) printf("Timing Initialized.\n");	
 		}
 		else
-			printf("Timing has been disabled.\n");
+			if (DEBUG_SYNC1394) printf("Timing has been disabled.\n");
 	}
 
 	unsigned long ulFlags = 0;  
