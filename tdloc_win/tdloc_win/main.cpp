@@ -149,9 +149,11 @@ int main(int argc, const char* argv[])
 			numCam = cam[n]->GetNumberOfCameras();
 			printf("Initializing %d camera(s)....\n\n", numCam);
 		}
+		if (numCam == 0)	break;
+
 		cam[n]->InitCamera(n, s);
-		if (n == numCam-1)
-			break;
+
+		if (n == numCam-1)	break;
 	}
 	Sleep(10);
 

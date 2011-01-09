@@ -25,6 +25,12 @@
     <Filter Include="Source Files\network">
       <UniqueIdentifier>{07dcfb31-f830-4786-8ef7-079fa98100b6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\artag">
+      <UniqueIdentifier>{81c8b9dc-d8e1-4e03-8757-98af9ba586bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\artag">
+      <UniqueIdentifier>{2dea7744-feaa-4895-9a82-c590b01b3478}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="camera\AutoWhiteBal.cpp">
@@ -42,6 +48,12 @@
     <ClCompile Include="network\udp_connection.cpp">
       <Filter>Source Files\network</Filter>
     </ClCompile>
+    <ClCompile Include="artag\ARtag.cpp">
+      <Filter>Source Files\artag</Filter>
+    </ClCompile>
+    <ClCompile Include="artag\ARtagLocalizer.cpp">
+      <Filter>Source Files\artag</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera\sync1394camera.h">
@@ -58,6 +70,12 @@
     </ClInclude>
     <ClInclude Include="network\udp_message.h">
       <Filter>Header Files\network</Filter>
+    </ClInclude>
+    <ClInclude Include="artag\ARtag.h">
+      <Filter>Header Files\artag</Filter>
+    </ClInclude>
+    <ClInclude Include="artag\ARtagLocalizer.h">
+      <Filter>Header Files\artag</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

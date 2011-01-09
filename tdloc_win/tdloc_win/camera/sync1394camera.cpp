@@ -1,6 +1,8 @@
 #include "sync1394camera.h"
 #define DEBUG_SYNC1394 0
+#define USE_SYSTIME 1
 //C1394Camera Sync1394Camera::camera;
+clock_t Sync1394Camera::start_tick;
 
 DWORD WINAPI CamThreadWrap(LPVOID t)
 {
@@ -62,6 +64,8 @@ DWORD Sync1394Camera::CamThread ()
 		if (dFrames>0 && fcount>1) printf ("DROPPED %d FRAMES! %d\n",dFrames, camId);
 
 		EnterCriticalSection(&camgrab_cs);		
+		if (USE_SYSTIME)	curtimestamp = (clock() - start_tick)/CLOCKS_PER_SEC;
+
 		if (config.isColor)
 		{
 			camptr->getRGB(buf,config.height * config.width * 3); dlength=1;
@@ -86,6 +90,10 @@ DWORD Sync1394Camera::CamThread ()
 			memcpy(undist_src->imageData,buf,config.width*config.height*3);
 			cvRemap( undist_src, undist_dst, mapx, mapy );
 			memcpy(buf,undist_dst->imageData,config.width*config.height*3);
+			if(artagLoc->getARtagPose(undist_dst))
+			{
+				printf("got %d ARtags\n", artagLoc->tags.size());
+			}
 		}
 		LeaveCriticalSection(&camgrab_cs);
 		SetEvent (cameraEvent);	
@@ -186,167 +194,6 @@ DWORD Sync1394Camera::CamThread ()
 	return 0;
 }
 
-///This is a little ghetto but will be useful. Call this function at the beginning of your app.
-// It will block until the auto gain setlles to the target gain value by adjusting shutter. It can
-// take several seconds so be careful how you use it. Its important the scene is relatively constant
-// while this is executing
-void Sync1394Camera::DoAutoShutter(C1394Camera* camptr, unsigned char* buf, unsigned short targetGain)
-{
-
-	printf("Attempting to adjust shutter....\n");
-	bool gotOKFrame = false;
-	while (gotOKFrame==false)
-	{
-		WaitForSingleObject (cameraEvent,5000);
-		if ((buf) == NULL)				
-			printf("waiting for first image...\n");
-		else
-			gotOKFrame = true;
-	}
-	unsigned short minShutter =0;
-	unsigned short maxShutter =0;
-	GetShutterMinMax (camptr, &minShutter,&maxShutter);
-	printf("max shutter: %d min shutter: %d",(int)maxShutter,(int)minShutter);
-	bool targetOK = false;	
-	bool oldAGCVal = this->config.AGC;
-	this->config.AGC = false;
-	SetGain (camptr,targetGain);
-	while (targetOK == false)	
-	{
-		int median = GetMedianPixelValue(buf,config.AGCtop,config.AGCbot);		
-		//too bright, positive error, 
-		//so pos error means decrease gain
-		float error = ((float)median - (float)idealMedian); 
-		float effort = 1;
-
-		effort = (abs(error * kp));
-		if (error<0) effort*=-1;
-		AGCerror = error;
-		AGCeffort = effort;		
-
-		int newShutter = (int) GetShutter (camptr)  - (int) effort;
-		if ((newShutter < 900) && (newShutter > 0))
-			SetShutter (camptr,newShutter);
-		else if (newShutter > MAX_FPS_LIMITED_SHUTTER)
-		{	
-			SetShutter (camptr,MAX_FPS_LIMITED_SHUTTER);
-			targetOK = true;
-			printf("WARNING: Max shutter!\n");
-		}
-		else 
-		{
-			SetShutter (camptr,1);
-			targetOK = true;
-			printf("WARNING: Min shutter!\n");
-		}
-
-		if (error < 5) targetOK = true;
-	}
-	this->config.AGC = oldAGCVal;
-	printf("Settled on shutter of: %d\n",(int)GetShutter (camptr));
-}
-
-unsigned short Sync1394Camera::GetShutter(C1394Camera* camptr)
-{
-
-	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_SHUTTER);
-	unsigned short val = 0;
-	ctrl->GetValue(&val,NULL);
-	return (int)val;
-}
-
-void Sync1394Camera::GetShutterMinMax (C1394Camera* camptr, unsigned short* min, unsigned short* max)
-{
-	if (config.isSlave) return;
-	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_SHUTTER);
-	ctrl->GetRange(min,max);
-	if (*min < 1) *min = 1;
-
-}
-
-
-int Sync1394Camera::SetShutter (C1394Camera* camptr,int val)
-{
-	if (config.isSlave) return 0 ;
-	if (val>maxShutter) val = maxShutter;
-	if (val<minShutter) val = minShutter;
-	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_SHUTTER);
-	if (ctrl->StatusAutoMode() == true)
-	{	
-		printf("I HAVE AUTOSHUTTER ASSHOLE");
-		return (-1);
-	}
-	else
-		return(ctrl->SetValue(val));
-}
-
-void Sync1394Camera::GetGainMinMax (C1394Camera* camptr, unsigned short* min, unsigned short* max)
-{
-	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_GAIN);
-	ctrl->GetRange(min,max);
-}
-
-unsigned short Sync1394Camera::GetGain(C1394Camera* camptr)
-{
-	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_GAIN);
-	unsigned short val = 0;
-	ctrl->GetValue(&val,NULL);
-	return val;
-}
-
-int Sync1394Camera::SetGain (C1394Camera* camptr, int val)
-{
-	if (config.isSlave) return 0;
-	if (val>maxGain) val = maxGain;
-	if (val<minGain) val = minGain;
-	//printf("G : %d\n",val);
-	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_GAIN);
-	if (ctrl->StatusAutoMode() == true)
-	{	
-		printf("I HAVE AUTOGAIN ASSHOLE");
-		return -1;
-	}
-	else
-	{
-		/*unsigned short read = 0;
-		ctrl->GetValue(&read,NULL);
-		printf("gain set to %d\n",read);*/
-		return(ctrl->SetValue(val));
-	}
-}
-
-unsigned short Sync1394Camera::GetBright(C1394Camera* camptr)
-{
-	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_BRIGHTNESS);
-	unsigned short val = 0;
-	ctrl->GetValue(&val,NULL);
-	return val;
-}
-
-int Sync1394Camera::SetBright (C1394Camera* camptr, int val)
-{
-	unsigned short max = 0;
-	unsigned short min = 0;
-	if (config.isSlave) return 0;
-	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_BRIGHTNESS);
-	ctrl->GetRange(&min,&max);
-	if (val>max) val = max;
-	if (val<min) val = min;
-	//printf("G : %d\n",val);
-	
-	if (ctrl->StatusAutoMode() == true)
-	{	
-		printf("I HAVE AUTOGAIN ASSHOLE");
-		return -1;
-	}
-	else
-	{
-		/*unsigned short read = 0;
-		ctrl->GetValue(&read,NULL);
-		printf("gain set to %d\n",read);*/
-		return(ctrl->SetValue(val));
-	}
-}
 
 
 Sync1394Camera::Sync1394Camera()
@@ -359,129 +206,13 @@ Sync1394Camera::Sync1394Camera()
 	idealMedian = AUTOGAIN_MEDIAN_IDEAL;
 	curtimestamp  = 0;
 	cameraEvent = CreateEvent ( NULL , false , false , NULL);
+	artagLoc = new ARtagLocalizer();
+	artagLoc->initARtagPose(640, 480, 80.0);
 }
-
-int Sync1394Camera::GetNumberOfCameras ()
-{
-	if( camera.RefreshCameraList() == 0 ) 
-	{ printf( "RefreshCameraList failed. Check that any cameras are connected.\n"); return false; }
-	return camera.GetNumberCameras();
-}
-
-int Sync1394Camera::GetMedianPixelValue(unsigned char* buf, int top, int bottom)
-{
-	int start = config.width * top;
-	int end = config.width * bottom;
-
-	//ugh sort the pixels, find the middle
-	if (config.isColor)
-	{
-		int tmp [256]={0};
-		for (int i=start; i<end; i++)
-		{	
-			tmp[(((unsigned char*)buf )[i*3])]++;			
-			tmp[(((unsigned char*)buf )[i*3+1])]++;			
-			tmp[(((unsigned char*)buf )[i*3+2])]++;			
-		}
-		int dashits = 0;
-		int i=0;
-		int mid = ((end-start)*3) /2;						
-
-		while (dashits < mid)
-			dashits += tmp[i++];			
-		i--;				
-		lastMedian = i;
-		return i;
-	}
-
-	else
-	{
-		if (config.BitDepth16)
-		{
-			int tmp [1024]={0};
-			for (int i=start; i<end; i++)
-				tmp[(((unsigned short*)buf )[i])]++;			
-			int dashits = 0;
-			int i=0;
-			int mid = (end-start) /2;						
-			i=0;
-			while (dashits < mid)
-				dashits += tmp[i++];			
-			i--;					
-			lastMedian = i;
-			return i;
-		}
-		else
-		{
-			int tmp [256]={0};
-			for (int i=start; i<end; i++)
-				tmp[(((unsigned char*)buf )[i])]++;			
-			int dashits = 0;
-			int i=0;
-			int mid = (end-start) /2;						
-			i=0;
-			while (dashits < mid)
-				dashits += tmp[i++];			
-			i--;					
-			lastMedian = i;
-			return i;
-		}
-	}
-}
-
-
-int Sync1394Camera::shortComp (const void* a, const void* b)
-{
-	unsigned short shita = *(unsigned short*)a;
-	unsigned short shitb = *(unsigned short*)b;
-	return (shita-shitb);
-}
-
-int Sync1394Camera::charComp (const void* a, const void* b)
-{
-	unsigned char shita = *(unsigned char*)a;
-	unsigned char shitb = *(unsigned char*)b;
-	return (shita-shitb);
-}
-
-int Sync1394Camera::GetNumMaxedPixelsInBuf (unsigned char* buf, int top, int bottom)
-{
-	int thisMax=0; 
-	int acc = 0;
-	int MAX = AUTOGAIN_MAX8BIT;
-	int start = config.width * top;
-	int end = config.width * bottom;
-	if (config.BitDepth16) MAX = AUTOGAIN_MAX16BIT;
-	if (config.isColor)
-	{
-		for (int i=start; i<end; i++)
-		{
-			if (((unsigned char*)buf )[i*3+0] >= MAX) acc++;			
-			if (((unsigned char*)buf )[i*3+1] >= MAX) acc++;
-			if (((unsigned char*)buf )[i*3+2] >= MAX) acc++;
-		}
-	}
-	else
-	{
-		for (int i=start; i<end; i++)
-		{
-			if (config.BitDepth16)
-			{
-				if (((unsigned short*)buf )[i] >= MAX) acc++;
-			}
-			else
-			{
-				if (((unsigned char*)buf )[i] >= MAX)	acc++;
-			}
-		}
-	}
-	lastMaxAcc = acc;
-	return acc;
-}
-
 
 Sync1394Camera::~Sync1394Camera()
 {	
+	artagLoc->cleanupARtagPose();
 	if (isRunning)
 	{
 		isRunning = false;
@@ -525,6 +256,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 		printf("RefreshCameraList failed.\n");
 		return false; 
 	} 
+	if (cameraID == 0) start_tick = clock();
 	if(camptr->SelectCamera(cameraID)!=CAM_SUCCESS)	
 	{ 
 		printf("Could not select camera\n" ); 
@@ -835,6 +567,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config)
 			return false;
 		}
 	}
+	
 
 	InitializeCriticalSection(&camgrab_cs);
 	isRunning = true;
@@ -884,3 +617,285 @@ int Sync1394Camera::SetWhiteBal(C1394Camera* camptr, unsigned short val0, unsign
 	return ctrl->SetValue(val0,val1);	
 }
 
+
+///This is a little ghetto but will be useful. Call this function at the beginning of your app.
+// It will block until the auto gain setlles to the target gain value by adjusting shutter. It can
+// take several seconds so be careful how you use it. Its important the scene is relatively constant
+// while this is executing
+void Sync1394Camera::DoAutoShutter(C1394Camera* camptr, unsigned char* buf, unsigned short targetGain)
+{
+
+	printf("Attempting to adjust shutter....\n");
+	bool gotOKFrame = false;
+	while (gotOKFrame==false)
+	{
+		WaitForSingleObject (cameraEvent,5000);
+		if ((buf) == NULL)				
+			printf("waiting for first image...\n");
+		else
+			gotOKFrame = true;
+	}
+	unsigned short minShutter =0;
+	unsigned short maxShutter =0;
+	GetShutterMinMax (camptr, &minShutter,&maxShutter);
+	printf("max shutter: %d min shutter: %d",(int)maxShutter,(int)minShutter);
+	bool targetOK = false;	
+	bool oldAGCVal = this->config.AGC;
+	this->config.AGC = false;
+	SetGain (camptr,targetGain);
+	while (targetOK == false)	
+	{
+		int median = GetMedianPixelValue(buf,config.AGCtop,config.AGCbot);		
+		//too bright, positive error, 
+		//so pos error means decrease gain
+		float error = ((float)median - (float)idealMedian); 
+		float effort = 1;
+
+		effort = (abs(error * kp));
+		if (error<0) effort*=-1;
+		AGCerror = error;
+		AGCeffort = effort;		
+
+		int newShutter = (int) GetShutter (camptr)  - (int) effort;
+		if ((newShutter < 900) && (newShutter > 0))
+			SetShutter (camptr,newShutter);
+		else if (newShutter > MAX_FPS_LIMITED_SHUTTER)
+		{	
+			SetShutter (camptr,MAX_FPS_LIMITED_SHUTTER);
+			targetOK = true;
+			printf("WARNING: Max shutter!\n");
+		}
+		else 
+		{
+			SetShutter (camptr,1);
+			targetOK = true;
+			printf("WARNING: Min shutter!\n");
+		}
+
+		if (error < 5) targetOK = true;
+	}
+	this->config.AGC = oldAGCVal;
+	printf("Settled on shutter of: %d\n",(int)GetShutter (camptr));
+}
+
+unsigned short Sync1394Camera::GetShutter(C1394Camera* camptr)
+{
+
+	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_SHUTTER);
+	unsigned short val = 0;
+	ctrl->GetValue(&val,NULL);
+	return (int)val;
+}
+
+void Sync1394Camera::GetShutterMinMax (C1394Camera* camptr, unsigned short* min, unsigned short* max)
+{
+	if (config.isSlave) return;
+	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_SHUTTER);
+	ctrl->GetRange(min,max);
+	if (*min < 1) *min = 1;
+
+}
+
+
+int Sync1394Camera::SetShutter (C1394Camera* camptr,int val)
+{
+	if (config.isSlave) return 0 ;
+	if (val>maxShutter) val = maxShutter;
+	if (val<minShutter) val = minShutter;
+	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_SHUTTER);
+	if (ctrl->StatusAutoMode() == true)
+	{	
+		printf("I HAVE AUTOSHUTTER ASSHOLE");
+		return (-1);
+	}
+	else
+		return(ctrl->SetValue(val));
+}
+
+void Sync1394Camera::GetGainMinMax (C1394Camera* camptr, unsigned short* min, unsigned short* max)
+{
+	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_GAIN);
+	ctrl->GetRange(min,max);
+}
+
+unsigned short Sync1394Camera::GetGain(C1394Camera* camptr)
+{
+	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_GAIN);
+	unsigned short val = 0;
+	ctrl->GetValue(&val,NULL);
+	return val;
+}
+
+int Sync1394Camera::SetGain (C1394Camera* camptr, int val)
+{
+	if (config.isSlave) return 0;
+	if (val>maxGain) val = maxGain;
+	if (val<minGain) val = minGain;
+	//printf("G : %d\n",val);
+	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_GAIN);
+	if (ctrl->StatusAutoMode() == true)
+	{	
+		printf("I HAVE AUTOGAIN ASSHOLE");
+		return -1;
+	}
+	else
+	{
+		/*unsigned short read = 0;
+		ctrl->GetValue(&read,NULL);
+		printf("gain set to %d\n",read);*/
+		return(ctrl->SetValue(val));
+	}
+}
+
+unsigned short Sync1394Camera::GetBright(C1394Camera* camptr)
+{
+	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_BRIGHTNESS);
+	unsigned short val = 0;
+	ctrl->GetValue(&val,NULL);
+	return val;
+}
+
+int Sync1394Camera::SetBright (C1394Camera* camptr, int val)
+{
+	unsigned short max = 0;
+	unsigned short min = 0;
+	if (config.isSlave) return 0;
+	C1394CameraControl* ctrl = camptr->GetCameraControl (FEATURE_BRIGHTNESS);
+	ctrl->GetRange(&min,&max);
+	if (val>max) val = max;
+	if (val<min) val = min;
+	//printf("G : %d\n",val);
+	
+	if (ctrl->StatusAutoMode() == true)
+	{	
+		printf("I HAVE AUTOGAIN ASSHOLE");
+		return -1;
+	}
+	else
+	{
+		/*unsigned short read = 0;
+		ctrl->GetValue(&read,NULL);
+		printf("gain set to %d\n",read);*/
+		return(ctrl->SetValue(val));
+	}
+}
+
+
+
+int Sync1394Camera::GetNumberOfCameras ()
+{
+	if( camera.RefreshCameraList() == 0 ) 
+	{ printf( "RefreshCameraList failed. Check that any cameras are connected.\n"); return false; }
+	return camera.GetNumberCameras();
+}
+
+int Sync1394Camera::GetMedianPixelValue(unsigned char* buf, int top, int bottom)
+{
+	int start = config.width * top;
+	int end = config.width * bottom;
+
+	//ugh sort the pixels, find the middle
+	if (config.isColor)
+	{
+		int tmp [256]={0};
+		for (int i=start; i<end; i++)
+		{	
+			tmp[(((unsigned char*)buf )[i*3])]++;			
+			tmp[(((unsigned char*)buf )[i*3+1])]++;			
+			tmp[(((unsigned char*)buf )[i*3+2])]++;			
+		}
+		int dashits = 0;
+		int i=0;
+		int mid = ((end-start)*3) /2;						
+
+		while (dashits < mid)
+			dashits += tmp[i++];			
+		i--;				
+		lastMedian = i;
+		return i;
+	}
+
+	else
+	{
+		if (config.BitDepth16)
+		{
+			int tmp [1024]={0};
+			for (int i=start; i<end; i++)
+				tmp[(((unsigned short*)buf )[i])]++;			
+			int dashits = 0;
+			int i=0;
+			int mid = (end-start) /2;						
+			i=0;
+			while (dashits < mid)
+				dashits += tmp[i++];			
+			i--;					
+			lastMedian = i;
+			return i;
+		}
+		else
+		{
+			int tmp [256]={0};
+			for (int i=start; i<end; i++)
+				tmp[(((unsigned char*)buf )[i])]++;			
+			int dashits = 0;
+			int i=0;
+			int mid = (end-start) /2;						
+			i=0;
+			while (dashits < mid)
+				dashits += tmp[i++];			
+			i--;					
+			lastMedian = i;
+			return i;
+		}
+	}
+}
+
+
+int Sync1394Camera::shortComp (const void* a, const void* b)
+{
+	unsigned short shita = *(unsigned short*)a;
+	unsigned short shitb = *(unsigned short*)b;
+	return (shita-shitb);
+}
+
+int Sync1394Camera::charComp (const void* a, const void* b)
+{
+	unsigned char shita = *(unsigned char*)a;
+	unsigned char shitb = *(unsigned char*)b;
+	return (shita-shitb);
+}
+
+int Sync1394Camera::GetNumMaxedPixelsInBuf (unsigned char* buf, int top, int bottom)
+{
+	int thisMax=0; 
+	int acc = 0;
+	int MAX = AUTOGAIN_MAX8BIT;
+	int start = config.width * top;
+	int end = config.width * bottom;
+	if (config.BitDepth16) MAX = AUTOGAIN_MAX16BIT;
+	if (config.isColor)
+	{
+		for (int i=start; i<end; i++)
+		{
+			if (((unsigned char*)buf )[i*3+0] >= MAX) acc++;			
+			if (((unsigned char*)buf )[i*3+1] >= MAX) acc++;
+			if (((unsigned char*)buf )[i*3+2] >= MAX) acc++;
+		}
+	}
+	else
+	{
+		for (int i=start; i<end; i++)
+		{
+			if (config.BitDepth16)
+			{
+				if (((unsigned short*)buf )[i] >= MAX) acc++;
+			}
+			else
+			{
+				if (((unsigned char*)buf )[i] >= MAX)	acc++;
+			}
+		}
+	}
+	lastMaxAcc = acc;
+	return acc;
+}

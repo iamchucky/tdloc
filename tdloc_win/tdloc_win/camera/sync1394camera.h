@@ -7,6 +7,7 @@
 #include <memory.h>
 #include <queue>
 #include <math.h>
+#include <time.h>
 #ifdef _DEBUG
 #pragma comment(lib,"1394camerad.lib")
 #else
@@ -17,6 +18,8 @@
 #include "..\network\udp_connection.h"
 
 #include "..\camera\AutoWhiteBal.h"
+#include "..\artag\ARtag.h"
+#include "..\artag\ARtagLocalizer.h"
 
 #include "opencv\cv.h"
 #include "opencv\highgui.h"
@@ -186,6 +189,7 @@ public:
 private:
 	static int shortComp (const void* a, const void* b);
 	static int charComp (const void* a, const void* b);
+	static clock_t start_tick;
 	C1394Camera camera;
 
 	//CAutoWhiteBal m_wbal[3];
@@ -206,6 +210,8 @@ private:
 	unsigned short minShutter;
 	int curSeqNumber;
 	int expSeqNumber;
+	ARtagLocalizer* artagLoc;
+
 
 	//camera_adjust_param_t camSettings[3];	//settings for shutter, white balance, gain
 
