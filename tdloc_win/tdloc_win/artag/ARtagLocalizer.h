@@ -15,7 +15,7 @@ public:
 	ARtagLocalizer();
 	~ARtagLocalizer();
 	int initARtagPose(int width, int height, float markerWidth);
-	bool getARtagPose(IplImage * src);
+	bool getARtagPose(IplImage * src, IplImage * dst);
 	int cleanupARtagPose(void);
 
 	std::vector<ARtag> tags;
@@ -28,6 +28,5 @@ private:
 
 	float patternWidth_;
 	float patternCenter_[2];
-	unsigned char *cameraBuffer;
 	ARToolKitPlus::TrackerSingleMarker *tracker;
 };

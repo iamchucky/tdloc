@@ -44,6 +44,9 @@ DWORD Sync1394Camera::CamThread ()
 	IplImage *undist_dst = cvCreateImage(cvSize(config.width,config.height),8,3);
 	//******************************************************************
 
+	//init ARtaglocalizer***********************************************
+	IplImage *gray = cvCreateImage(cvSize(config.width,config.height),8,1);	
+	//******************************************************************
 	printf("Cam %d Thread Started\n\n", camId);
 	while(isRunning) 
 	{	
@@ -89,11 +92,16 @@ DWORD Sync1394Camera::CamThread ()
 		{
 			memcpy(undist_src->imageData,buf,config.width*config.height*3);
 			cvRemap( undist_src, undist_dst, mapx, mapy );
-			memcpy(buf,undist_dst->imageData,config.width*config.height*3);
-			if(artagLoc->getARtagPose(undist_dst))
+			cvCvtColor( undist_dst, gray, CV_BGR2GRAY );
+			artagLoc->tags.clear();
+			if(isRunning)
 			{
-				printf("got %d ARtags\n", artagLoc->tags.size());
+				if(artagLoc->getARtagPose(gray, undist_dst))
+				{
+					printf("got %d ARtags\n", artagLoc->tags.size());
+				}
 			}
+			memcpy(buf,undist_dst->imageData,config.width*config.height*3);
 		}
 		LeaveCriticalSection(&camgrab_cs);
 		SetEvent (cameraEvent);	
@@ -190,6 +198,7 @@ DWORD Sync1394Camera::CamThread ()
 	cvReleaseImage(&wbrgb);
 	cvReleaseImage(&undist_src);
 	cvReleaseImage(&undist_dst);
+	cvReleaseImage(&gray);
 	printf("\nCam %d Thread Ended\n", camId);
 	return 0;
 }
@@ -207,7 +216,7 @@ Sync1394Camera::Sync1394Camera()
 	curtimestamp  = 0;
 	cameraEvent = CreateEvent ( NULL , false , false , NULL);
 	artagLoc = new ARtagLocalizer();
-	artagLoc->initARtagPose(640, 480, 80.0);
+	artagLoc->initARtagPose(640, 480, 200.0);
 }
 
 Sync1394Camera::~Sync1394Camera()

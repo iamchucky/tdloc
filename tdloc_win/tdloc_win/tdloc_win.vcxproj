@@ -101,10 +101,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\1394camera\1394camera;C:\OpenCV2.2\include;..\..\ARToolKitPlus\include;..\..\ARToolKitPlus\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>C:\Program Files\CMU\1394Camera\lib;C:\OpenCV2.2\lib;..\..\ARToolKitPlus\lib\win32</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opencv_core220d.lib;opencv_highgui220d.lib;opencv_imgproc220d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

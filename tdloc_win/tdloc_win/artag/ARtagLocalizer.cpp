@@ -19,7 +19,6 @@ ARtagLocalizer::ARtagLocalizer()
 int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth)
 {
     size_t numPixels = width*height;
-    cameraBuffer = new unsigned char[numPixels];
 	// create a tracker that does:
     //  - 6x6 sized marker images
     //  - samples at a maximum of 6x6
@@ -36,7 +35,6 @@ int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth)
     if(!tracker->init("..\\..\\ARToolKitPlus\\data\\no_distortion.cal", 1.0f, 1000.0f))
 	{
 		printf("ERROR: init() failed\n");
-		delete cameraBuffer;
 		delete tracker;
 		return -1;
 	}
@@ -56,7 +54,7 @@ int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth)
     tracker->setUndistortionMode(ARToolKitPlus::UNDIST_LUT);
 
     // RPP is more robust than ARToolKit's standard pose estimator
-    tracker->setPoseEstimator(ARToolKitPlus::POSE_ESTIMATOR_RPP);
+    tracker->setPoseEstimator(ARToolKitPlus::POSE_ESTIMATOR_ORIGINAL);
 
     // switch to simple ID based markers
     // use the tool in tools/IdPatGen to generate markers
@@ -66,7 +64,7 @@ int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth)
 	return 0;
 }
 
-bool ARtagLocalizer::getARtagPose(IplImage * src)
+bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst)
 {
 	if (!init)
 	{
@@ -85,16 +83,12 @@ bool ARtagLocalizer::getARtagPose(IplImage * src)
 	}
 	
 	int n = 0;
-	for(int i = 0; i < src->height; ++i)
-		for(int j = 0; j < src->width; ++j)
-			cameraBuffer[n++] = CV_IMAGE_ELEM(src,uchar,i,j);
-
 	/*const char* description = tracker->getDescription();
 	printf("ARToolKitPlus compile-time information:\n%s\n\n", description);*/
 
 	int numMarkers = 0;
 	ARToolKitPlus::ARMarkerInfo* markers = NULL;
-	if (tracker->arDetectMarker(const_cast<unsigned char*>(cameraBuffer), 150, &markers, &numMarkers) < 0) 
+	if (tracker->arDetectMarker(const_cast<unsigned char*>((unsigned char*)src->imageData), 150, &markers, &numMarkers) < 0) 
 	{
 		return false;
 	}
@@ -127,9 +121,7 @@ bool ARtagLocalizer::getARtagPose(IplImage * src)
 
 			char str[30];
 			sprintf(str,"%d",markers[m].id);
-			cvRectangle(src,cvPoint(markers[m].pos[0]-10,markers[m].pos[1]+10),
-				cvPoint(markers[m].pos[0]+10,markers[m].pos[1]-10),cvScalar(150,150,150),-1);
-			cvPutText (src,str,cvPoint( markers[m].pos[0]-10,markers[m].pos[1]+5),&cvFont(1,1),cvScalar(0,0,0));
+			cvPutText (dst,str,cvPoint( markers[m].pos[0],markers[m].pos[1]),&cvFont(3,3),cvScalar(255,0,0));
 
 			cv::Mat PoseM(4, 4, CV_32F, modelViewMatrix_);
 			cv::transpose(PoseM,PoseM);
@@ -146,7 +138,6 @@ bool ARtagLocalizer::getARtagPose(IplImage * src)
 
 int ARtagLocalizer::cleanupARtagPose(void)
 {
-	delete [] cameraBuffer;
 	delete tracker;
 	return 0;
 }
