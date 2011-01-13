@@ -159,15 +159,21 @@ int main(int argc, const char* argv[])
 
 	IplImage* img;
 	IplImage* imgrz;
+	int camWidth = WIDTH*numCam;
+	int camHeight = HEIGHT*(numCam/4);
+	if (numCam >= 4)
+	{
+		camWidth = WIDTH*4;
+	}
 	if (s.isColor)
 	{
-		img = cvCreateImage (cvSize(WIDTH*numCam,HEIGHT),IPL_DEPTH_8U,3);
-		imgrz = cvCreateImage (cvSize(WIDTH*numCam/2,HEIGHT/2),IPL_DEPTH_8U,3);
+		img = cvCreateImage (cvSize(camWidth,camHeight),IPL_DEPTH_8U,3);
+		imgrz = cvCreateImage (cvSize(camWidth*2/3,camHeight*2/3),IPL_DEPTH_8U,3);
 	}
 	else
 	{
-		img = cvCreateImage (cvSize(WIDTH,HEIGHT),IPL_DEPTH_8U,1);
-		imgrz = cvCreateImage (cvSize(WIDTH/2,HEIGHT/2),IPL_DEPTH_8U,1);
+		img = cvCreateImage (cvSize(camWidth,camHeight),IPL_DEPTH_8U,1);
+		imgrz = cvCreateImage (cvSize(camWidth/2,camHeight/2),IPL_DEPTH_8U,1);
 	}		
 
 	hMapFile = CreateFileMappingA(
@@ -175,7 +181,7 @@ int main(int argc, const char* argv[])
 		NULL,                    // default security 
 		PAGE_READWRITE,          // read/write access
 		0,                       // max. object size 
-		(WIDTH*numCam*HEIGHT*numChannels) + sizeof(double), // buffer size  
+		(camWidth*camHeight*numChannels) + sizeof(double), // buffer size  
 		szName);                 // name of mapping object
 	if (hMapFile == NULL) 
 	{ 
@@ -254,7 +260,7 @@ int main(int argc, const char* argv[])
 				int col = 0;
 				int row = 0;
 			
-				for (int i=0; i<640*480*3; i+=3)
+				for (int i=0; i<WIDTH*HEIGHT*3; i+=3)
 				{
 					for (int k = 0; k < 3; k++)
 					{
@@ -266,11 +272,11 @@ int main(int argc, const char* argv[])
 						for (int n = 0; n < numCam; ++n)
 						{
 							char buf = i[((char*)(cam[n]->buf)+k)];	
-							((uchar*)(img->imageData + img->widthStep*row+2-k))[(col+n*640)*img->nChannels] = buf>255?255:buf;
+							((uchar*)(img->imageData + img->widthStep*(row+HEIGHT*(n/4))+2-k))[(col+(n%4)*WIDTH)*img->nChannels] = buf>255?255:buf;
 						}
 					}
 
-					if (col < 639)
+					if (col < WIDTH-1)
 					{
 						col++;
 					}
@@ -300,8 +306,8 @@ int main(int argc, const char* argv[])
 		if (upsidedown)
 			cvFlip (img,img,-1);
 
-		CopyMemory(pBuf, img->imageData, WIDTH*numCam*HEIGHT*numChannels);		
-		CopyMemory((char*)pBuf+(WIDTH*numCam*HEIGHT*numChannels), &timestamp,sizeof(double));
+		CopyMemory(pBuf, img->imageData, camWidth*camHeight*numChannels);		
+		CopyMemory((char*)pBuf+(camWidth*camHeight*numChannels), &timestamp,sizeof(double));
 		ReleaseMutex(ghMutex);
 
 		switch(cvWaitKey (10)){

@@ -40,7 +40,9 @@ DWORD Sync1394Camera::CamThread ()
 			undist_init = true;
 		}
 	}
-	IplImage *undist_src = cvCreateImage(cvSize(config.width,config.height),8,3);	
+	IplImage *undist_src = cvCreateImageHeader(cvSize(config.width,config.height),8,3);
+	//IplImage *undist_dst = cvCreateImageHeader(cvSize(config.width,config.height),8,3);
+	//IplImage *undist_src = cvCreateImage(cvSize(config.width,config.height),8,3);	
 	IplImage *undist_dst = cvCreateImage(cvSize(config.width,config.height),8,3);
 	//******************************************************************
 
@@ -90,7 +92,9 @@ DWORD Sync1394Camera::CamThread ()
 		}
 		if (UNDIST)
 		{
-			memcpy(undist_src->imageData,buf,config.width*config.height*3);
+			//memcpy(undist_src->imageData,buf,config.width*config.height*3);
+			undist_src->imageData = (char*) buf;
+			undist_src->imageDataOrigin = undist_src->imageData;
 			cvRemap( undist_src, undist_dst, mapx, mapy );
 			cvCvtColor( undist_dst, gray, CV_BGR2GRAY );
 			artagLoc->tags.clear();
@@ -196,7 +200,7 @@ DWORD Sync1394Camera::CamThread ()
 	}
 	cvReleaseImage(&wbim);
 	cvReleaseImage(&wbrgb);
-	cvReleaseImage(&undist_src);
+	//cvReleaseImage(&undist_src);
 	cvReleaseImage(&undist_dst);
 	cvReleaseImage(&gray);
 	printf("\nCam %d Thread Ended\n", camId);
