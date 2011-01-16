@@ -147,6 +147,7 @@ int main(int argc, const char* argv[])
 		if (n == 0)
 		{
 			numCam = cam[n]->GetNumberOfCameras();
+			//numCam = 1;
 			printf("Initializing %d camera(s)....\n\n", numCam);
 		}
 		if (numCam == 0)	break;
@@ -160,7 +161,7 @@ int main(int argc, const char* argv[])
 	IplImage* img;
 	IplImage* imgrz;
 	int camWidth = WIDTH*numCam;
-	int camHeight = HEIGHT*(numCam/4);
+	int camHeight = HEIGHT*((int)ceil(numCam/4.f));
 	if (numCam >= 4)
 	{
 		camWidth = WIDTH*4;
@@ -245,7 +246,7 @@ int main(int argc, const char* argv[])
 		
 		if (s.isColor)
 		{
-			if (numCam == 1)
+			/*if (numCam == 1)
 			{
 				for (int i=0; i<WIDTH*HEIGHT; i++)
 				{				
@@ -255,7 +256,7 @@ int main(int argc, const char* argv[])
 				}
 			}
 			else
-			{
+			{*/
 				// combine all 3 camera images
 				int col = 0;
 				int row = 0;
@@ -286,7 +287,7 @@ int main(int argc, const char* argv[])
 						row++;
 					}
 				}
-			}
+			//}
 		}		
 		
 		double	timestamp = cam[0]->curtimestamp;

@@ -32,7 +32,8 @@ int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth)
 
 	tracker->setPixelFormat(ARToolKitPlus::PIXEL_FORMAT_LUM);
 	// load a camera file. 
-    if(!tracker->init("..\\..\\ARToolKitPlus\\data\\no_distortion.cal", 1.0f, 1000.0f))
+    if(!tracker->init("..\\..\\ARToolKitPlus\\data\\Unibrain_640x480.cal", 1.0f, 1000.0f))
+	//if(!tracker->init("..\\..\\ARToolKitPlus\\data\\no_distortion.cal", 1.0f, 1000.0f))
 	{
 		printf("ERROR: init() failed\n");
 		delete tracker;
@@ -93,8 +94,8 @@ bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst)
 		return false;
 	}
 
-	if (numMarkers == 0 || markers[0].id == -1)
-		return false;
+	/*if (numMarkers == 0 || markers[0].id == -1)
+		return false;*/
 
 	float modelViewMatrix_[16];
 	for(int m = 0; m < numMarkers; ++m) {
