@@ -6,6 +6,10 @@ using namespace std;
 const float THIN_PATTERN_BORDER = 0.125;
 const float THICK_PATTERN_BORDER = 0.25;
 
+ARtag * ARtagLocalizer::tags[50];
+CRITICAL_SECTION ARtagLocalizer::tags_mutex;
+bool ARtagLocalizer::allStop = false;
+
 ARtagLocalizer::ARtagLocalizer()
 {
 	imgwidth = 640;
@@ -14,9 +18,25 @@ ARtagLocalizer::ARtagLocalizer()
 	useBCH = true;
 	patternCenter_[0] = patternCenter_[1] = 0.0;
 	patternWidth_ = 80.0;
+	xoffset = 0;
+	yoffset = 0;
+	for (int n = 0; n < 50; ++n)
+	{
+		tags[n] = new ARtag();
+	}
+	InitializeCriticalSection(&tags_mutex);
 }
 
-int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth)
+ARtagLocalizer::~ARtagLocalizer()
+{
+	for (int n = 0; n < 50; ++n)
+	{
+		delete tags[n];
+	}
+	DeleteCriticalSection (&tags_mutex);
+}
+
+int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth, float x_offset, float y_offset)
 {
     size_t numPixels = width*height;
 	// create a tracker that does:
@@ -29,10 +49,13 @@ int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth)
 	imgwidth = width;
 	imgheight = height;
 	patternCenter_[0] = patternCenter_[1] = 0.0;
+	xoffset = x_offset;
+	yoffset = y_offset;
 
 	tracker->setPixelFormat(ARToolKitPlus::PIXEL_FORMAT_LUM);
 	// load a camera file. 
-    if(!tracker->init("..\\..\\ARToolKitPlus\\data\\Unibrain_640x480.cal", 1.0f, 1000.0f))
+    //if(!tracker->init("..\\..\\ARToolKitPlus\\data\\Unibrain_640x480.cal", 1.0f, 1000.0f))
+	if(!tracker->init("..\\..\\ARToolKitPlus\\data\\Unibrain_640x4801.cal", 1.0f, 1000.0f))
 	//if(!tracker->init("..\\..\\ARToolKitPlus\\data\\no_distortion.cal", 1.0f, 1000.0f))
 	{
 		printf("ERROR: init() failed\n");
@@ -54,8 +77,10 @@ int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth)
     // note: LUT only works with images up to 1024x1024
     tracker->setUndistortionMode(ARToolKitPlus::UNDIST_LUT);
 
-    // RPP is more robust than ARToolKit's standard pose estimator
+    // RPP is more robust than ARToolKit's standard pose estimator but uses more CPU resource
+	// so using standard pose estimator instead
     tracker->setPoseEstimator(ARToolKitPlus::POSE_ESTIMATOR_ORIGINAL);
+	//tracker->setPoseEstimator(ARToolKitPlus::POSE_ESTIMATOR_RPP);
 
     // switch to simple ID based markers
     // use the tool in tools/IdPatGen to generate markers
@@ -65,7 +90,7 @@ int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth)
 	return 0;
 }
 
-bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst)
+bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst, int camID)
 {
 	if (!init)
 	{
@@ -83,10 +108,6 @@ bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst)
 		return NULL;
 	}
 	
-	int n = 0;
-	/*const char* description = tracker->getDescription();
-	printf("ARToolKitPlus compile-time information:\n%s\n\n", description);*/
-
 	int numMarkers = 0;
 	ARToolKitPlus::ARMarkerInfo* markers = NULL;
 	if (tracker->arDetectMarker(const_cast<unsigned char*>((unsigned char*)src->imageData), 150, &markers, &numMarkers) < 0) 
@@ -94,16 +115,12 @@ bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst)
 		return false;
 	}
 
-	/*if (numMarkers == 0 || markers[0].id == -1)
-		return false;*/
+	//mytag.clear();
 
 	float modelViewMatrix_[16];
 	for(int m = 0; m < numMarkers; ++m) {
 		if(markers[m].id != -1 && markers[m].cf >= 0.5) {
 			tracker->calcOpenGLMatrixFromMarker(&markers[m], patternCenter_, patternWidth_, modelViewMatrix_);
-
-			ARtag ar;
-			ar.setId(markers[m].id);
 
 			float x = modelViewMatrix_[12] / 1000.0;
 			float y = modelViewMatrix_[13] / 1000.0;
@@ -115,24 +132,35 @@ bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst)
 				// ARTKPlus bug that occurs sometimes
 				continue;
 			}
-
-			printf("Id: %d\t Conf: %.2f\n", markers[m].id, markers[m].cf);
+			
+			/*printf("Id: %d\t Conf: %.2f\n", markers[m].id, markers[m].cf);
 			printf("x: %.2f \t y: %.2f \t z: %.2f \t yaw: %.2f\n", x,y,z,yaw);
-			printf("\n");
+			printf("\n");*/
 
 			char str[30];
 			sprintf(str,"%d",markers[m].id);
-			cvPutText (dst,str,cvPoint( markers[m].pos[0],markers[m].pos[1]),&cvFont(3,3),cvScalar(255,0,0));
+			cvPutText (dst,str,cvPoint( markers[m].pos[0]+25,markers[m].pos[1]+10),&cvFont(3,3),cvScalar(255,0,0));
+			sprintf(str,"(%.2f,%.2f)", x*0.96 + xoffset, y*0.96 + yoffset);
+			cvPutText (dst,str,cvPoint( markers[m].pos[0]+25,markers[m].pos[1]+25),&cvFont(1,1),cvScalar(255,0,0));
 
 			cv::Mat PoseM(4, 4, CV_32F, modelViewMatrix_);
 			cv::transpose(PoseM,PoseM);
 			CvMat pose = PoseM;
-			ar.setPose(&pose);
-			ar.setPoseAge(0);
-			tags.push_back(ar);
+
+			// save artag struct for access later
+			if (markers[m].id >= 0 && markers[m].id < 50 && !allStop)
+			{
+				EnterCriticalSection(&tags_mutex);		
+				ARtag * ar = tags[markers[m].id];
+				ar->setId(markers[m].id);
+				ar->setPose(&pose);
+				ar->setPoseAge(0);
+				ar->setCamId(camID);
+				LeaveCriticalSection(&tags_mutex);
+				//mytag.push_back(*ar);
+			}
 		}
 	}
-	printf("\n\n");
 
 	return true;
 }

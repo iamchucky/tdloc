@@ -9,19 +9,23 @@ class ARtag
 		ARtag();
 		virtual ~ARtag();
 
-		void setId(unsigned int id);
+		void setId(int id);
 		unsigned int getId() const;
 
 		void setPose(CvMat * pose);
-		const CvMat * getPose() const;
+		CvMat * getPose() const;
 
 		void setPoseAge(unsigned int age);
 		unsigned int getPoseAge() const;
+
+		void setCamId(int id);
+		unsigned int getCamId() const;
 
 	protected:
 		unsigned int id_;
 		CvMat * pose_;
 		unsigned int pose_age_;
+		unsigned int cam_id_;
 };
 
 #endif

@@ -10,7 +10,7 @@ ARtag::~ARtag()
 {
 }
 
-void ARtag::setId(unsigned int id)
+void ARtag::setId(int id)
 {
 	id_ = id;
 }
@@ -27,7 +27,7 @@ void ARtag::setPose(CvMat * pose)
 			CV_MAT_ELEM(*pose_ , float, i, j) = CV_MAT_ELEM(*pose , float, i, j);
 }
 
-const CvMat * ARtag::getPose() const
+CvMat * ARtag::getPose() const
 {
 	return pose_;
 }
@@ -40,4 +40,14 @@ void ARtag::setPoseAge(unsigned int age)
 unsigned int ARtag::getPoseAge() const
 {
 	return pose_age_;
+}
+
+void ARtag::setCamId(int id)
+{
+	cam_id_ = id;
+}
+
+unsigned int ARtag::getCamId() const
+{
+	return cam_id_;
 }
