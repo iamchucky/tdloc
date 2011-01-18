@@ -134,7 +134,7 @@ int main(int argc, const char* argv[])
 	SyncCamParams s;
 	if (camtype == CAM_UNIBRAIN)
 	{
-		cout<<"Using Unibrain"<<endl;
+		cout<<"Using Unibrain Fire-i"<<endl;
 		WIDTH=640;
 		HEIGHT=	480;
 		numChannels= 3;
