@@ -54,8 +54,6 @@
 #define WHITEBALANCE_VALUE1	510
 #define WHITEBALANCE_VALUE2	800
 
-#define UNDIST false		// Setting to undistort the camera to account for lens distortion.
-
 using namespace std;
 //Encapsulates the UDP connection class for syncronized images delivered
 //from a 1394 camera, using the CMU cam driver
@@ -153,7 +151,7 @@ class Sync1394Camera
 public:
 	Sync1394Camera();
 	~Sync1394Camera();
-	bool InitCamera (int cameraID, SyncCamParams config, float x_offset, float y_offset);
+	bool InitCamera (int cameraID, SyncCamParams config, float x_offset, float y_offset, float yaw_offset, float fudge = 0.97);
 	int GetNumberOfCameras ();
 	int SetBright(C1394Camera* camptr,int val);
 	int SetGain(C1394Camera* camptr,int val);
@@ -197,8 +195,6 @@ private:
 	static clock_t start_tick;
 	C1394Camera camera;
 
-	//CAutoWhiteBal m_wbal[3];
-
 	int camId;
 	bool isRunning;	
 	HANDLE cameraHandle;
@@ -215,8 +211,6 @@ private:
 	unsigned short minShutter;
 	int curSeqNumber;
 	int expSeqNumber;
-
-	//camera_adjust_param_t camSettings[3];	//settings for shutter, white balance, gain
 
 };
 

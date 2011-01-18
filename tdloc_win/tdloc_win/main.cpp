@@ -3,9 +3,8 @@
 //Accurately synchronizes the camera with
 //the pulse coming from the timing system.
 #define DISPLAY_ON 1
-#define NUM_CAM 4
-#define ORIGINX 0.34
-#define ORIGINY -0.05
+#define NUM_CAM 0
+#define FUDGE_FACTOR 0.97
 
 #ifndef _WIN32_WINNT		// Allow use of features specific to Windows XP or later.                   
 #define _WIN32_WINNT 0x0501	// Change this to the appropriate value to target other versions of Windows.
@@ -15,7 +14,6 @@
 #include <tchar.h>
 #include <string>
 #include <sstream>
-//#include <windows.h>
 
 #include "camera\sync1394camera.h"
 #include "opencv\cv.h"
@@ -39,10 +37,16 @@ enum CameraType
 	CAM_BASLER622, CAM_BASLER311, CAM_PROSILICA, CAM_UNIBRAIN, CAM_FIREFLY
 };
 
+enum OperationMode
+{
+	opmode_CALIB, opmode_NORMAL, opmode_IDLE
+};
+
 struct cam_offset
 {
 	float xoffset;
 	float yoffset;
+	float yawoffset;
 };
 
 volatile bool running=true;
@@ -60,8 +64,10 @@ double lasttime=0;
 unsigned int framecount = 0;
 char filename[50];
 struct cam_offset coff[50];
+OperationMode opmode = opmode_IDLE;
+bool calib_capture = false;
+char viewWindowName[] = "CameraServer. Press Q to quit. Press C to calibrate. Press V to start broadcasting. Press I to go into idle.";
 
-void calibCam();
 void ClearScreen();
 
 //captures the closing of the console window and closes the app appropriately
@@ -106,7 +112,7 @@ int main(int argc, const char* argv[])
 		if (strcmp(argv[1],"UNIBRAIN") == 0)
 		{
 			camtype = CAM_UNIBRAIN;
-			printf("Using Unibrain");
+			printf("Using Unibrain Fire-i");
 		}
 		else if (strcmp(argv[1],"FIREFLY") == 0)
 		{
@@ -121,7 +127,9 @@ int main(int argc, const char* argv[])
 		camOrder = atoi(argv[2]);
 	}
 	else
-		printf("Warning: No Command Line Arguments Defined. Using Defaults.\n");
+	{
+		//printf("Warning: No Command Line Arguments Defined. Using Defaults.\n");
+	}
 
 	SyncCamParams s;
 	if (camtype == CAM_UNIBRAIN)
@@ -156,11 +164,15 @@ int main(int argc, const char* argv[])
 
 	for (int n = 0; n < 50; ++n)
 	{
-		/*coff[n].xoffset = 1.20*(n%4) + ORIGINX;
-		coff[n].yoffset = 1.60*(floor(n/4.f)) + ORIGINY;*/
+		//initialize camera offsets here
 		coff[n].xoffset = 0.f;
 		coff[n].yoffset = 0.f;
+		coff[n].yawoffset = 0.f;
 	}
+	struct cam_offset ooffset;	// origin offset
+	ooffset.xoffset = 0.f;
+	ooffset.yoffset = 0.f;
+	ooffset.yawoffset = 0.f;
 	
 	//finally, create a new camera
 	Sync1394Camera* cam[50];			// support up to 50 cam pointers
@@ -169,18 +181,26 @@ int main(int argc, const char* argv[])
 		cam[n] = new Sync1394Camera ();
 		if (n == 0)
 		{
-			//numCam = cam[n]->GetNumberOfCameras();
-			numCam = 1;
+			if (NUM_CAM == 0)
+			{
+				numCam = cam[n]->GetNumberOfCameras();
+			}
+			else
+			{
+				numCam = NUM_CAM;
+			}
+			
 			printf("Initializing %d camera(s)....\n\n", numCam);
 		}
 		if (numCam == 0)	break;
 
-		cam[n]->InitCamera(n, s, coff[n].xoffset, coff[n].yoffset);
+		cam[n]->InitCamera(n, s, coff[n].xoffset, coff[n].yoffset, coff[n].yawoffset, FUDGE_FACTOR);
 
 		if (n == numCam-1)	break;
 	}
 	Sync1394Camera::allCamInit = true;
 	Sleep(10);
+	printf("Press spacebar with view window selected to expand it\n");
 
 	IplImage* img;
 	IplImage* imgrz;
@@ -225,8 +245,8 @@ int main(int argc, const char* argv[])
 
 	running=true;
 	
-	cvNamedWindow ("CameraServer. Press q to quit");
-	cvResizeWindow("CameraServer. Press q to quit",200,0);//*/
+	cvNamedWindow (viewWindowName);
+	cvResizeWindow(viewWindowName,200,0);
 	
 	bool display_image=0;
 
@@ -319,49 +339,191 @@ int main(int argc, const char* argv[])
 		CopyMemory(pBuf, img->imageData, camWidth*camHeight*numChannels);		
 		CopyMemory((char*)pBuf+(camWidth*camHeight*numChannels), &timestamp,sizeof(double));
 		ReleaseMutex(ghMutex);
-
-		ClearScreen();
-		EnterCriticalSection(&ARtagLocalizer::tags_mutex);
-		for (int n = 0; n < 50; ++n)
+		switch(opmode)
 		{
-			ARtag * ar = ARtagLocalizer::tags[n];
-			if (ar->getId() == n)
-			{
-				cv::Mat pose = ar->getPose();
-				int camId = ar->getCamId();
-				float x = pose.at<float>(0,3)/1000.0*0.96 + coff[camId].xoffset;
-				float y = pose.at<float>(1,3)/1000.0*0.96 + coff[camId].yoffset;
-				float z = pose.at<float>(2,3)/1000.0;
-				float yaw = atan2(pose.at<float>(1,0), pose.at<float>(0,0));
-				printf("Id: %d\n", ar->getId());
-				printf("x: %.2f \t y: %.2f \t z: %.2f \t yaw: %.2f\n", x,y,z,yaw);
-				printf("\n");
-				ar->setId(-1);
-			}
-		}
-		LeaveCriticalSection(&ARtagLocalizer::tags_mutex);
+			case opmode_CALIB:
+				// Calibration function starts here *************************************************
+				if (calib_capture && numCam > 1)
+				{
+					int thereiszero = -1;
+					ClearScreen();
+					for (int n = 0; n < numCam; ++n)
+					{
+						EnterCriticalSection(&cam[n]->camgrab_cs);
+					}
+					for (int n = 1; n < numCam; ++n)
+					{
+						struct cam_offset myoffset;
+						myoffset.xoffset = 0.f;
+						myoffset.yoffset = 0.f;
+						myoffset.yawoffset = 0.f;
 
-		switch(cvWaitKey (10)){
+						int tagcount = 0;
+						int origin = n-1;
+						if (n%4 == 0)
+						{
+							origin = n - 4;
+						}
+						int cam1tagSize = cam[n]->artagLoc->getARtagSize();
+						int cam0tagSize = cam[origin]->artagLoc->getARtagSize();
+						if (cam1tagSize > 0 && cam0tagSize > 0)
+						{
+							for (int i = 0; i < cam1tagSize; ++i)
+							{
+								for (int j = 0; j < cam0tagSize; ++j)
+								{
+									cv::Mat pose0 = cam[origin]->artagLoc->getARtag(j)->getPose();
+									cv::Mat pose1 = cam[n]->artagLoc->getARtag(i)->getPose();
+									float x0 = pose0.at<float>(0,3)/1000.0*FUDGE_FACTOR;
+									float x1 = pose1.at<float>(0,3)/1000.0*FUDGE_FACTOR;
+									
+									float y0 = pose0.at<float>(1,3)/1000.0*FUDGE_FACTOR;
+									float y1 = pose1.at<float>(1,3)/1000.0*FUDGE_FACTOR;
+
+									// find match ARtag ID
+									if (cam[origin]->artagLoc->getARtag(j)->getId() == cam[n]->artagLoc->getARtag(i)->getId())
+									{
+										myoffset.xoffset = myoffset.xoffset + (x0 - x1);
+										myoffset.yoffset = myoffset.yoffset + (y0 - y1);
+										tagcount++;
+									}
+									if (cam[origin]->artagLoc->getARtag(j)->getId() == 0)
+									{
+										ooffset.xoffset = x0;
+										ooffset.yoffset = y0;
+										thereiszero = origin;
+									}
+									else if (cam[n]->artagLoc->getARtag(i)->getId() == 0)
+									{
+										ooffset.xoffset = x1;
+										ooffset.yoffset = y1;
+										thereiszero = n;
+									}
+								}
+							}
+							if (tagcount != 0)
+							{
+								myoffset.xoffset /= tagcount;				// Averaging offsets from matched ARtags
+								myoffset.yoffset /= tagcount;
+								myoffset.yawoffset /= tagcount;
+								myoffset.xoffset += coff[origin].xoffset;	// Accumulate offsets from previous cameras
+								myoffset.yoffset += coff[origin].yoffset;
+								
+								coff[n].xoffset = myoffset.xoffset;
+								coff[n].yoffset = myoffset.yoffset;
+							}
+							else	// not all camera got more than 0 matched ARtag
+							{
+								calib_capture = false;
+								printf("Trying again...\n");
+								break;
+							}
+						}
+						else	// not all camera got more than 0 matched ARtag
+						{
+							calib_capture = false;
+							printf("Trying again...\n");
+							break;
+						}
+					}
+					for (int n = 0; n < numCam; ++n)
+					{
+						LeaveCriticalSection(&cam[n]->camgrab_cs);
+					}
+
+					// calibrated successfully, go into idle mode to wait for user to verify 
+					// and press 'v' to change to normal mode
+					if (calib_capture)	
+					{
+						if (thereiszero != -1)
+						{
+							ooffset.xoffset += coff[thereiszero].xoffset;	
+							ooffset.yoffset += coff[thereiszero].yoffset;
+						}
+						else
+						{
+							ooffset.xoffset = 0.f;
+							ooffset.yoffset = 0.f;
+						}
+						for (int n = 0; n < numCam; ++n)
+						{
+							cam[n]->artagLoc->setARtagOffset(coff[n].xoffset-ooffset.xoffset, coff[n].yoffset-ooffset.yoffset, 0.f);
+							printf("CAM%d\t xoffset: %.2f\t yoffset: %.2f\t yawoffset: %.2f\n", n, coff[n].xoffset-ooffset.xoffset, -(coff[n].xoffset-ooffset.xoffset), 0.f);
+						}
+						opmode = opmode_IDLE;
+						calib_capture = false;
+					}
+					else
+					{
+						calib_capture = true;
+					}
+				}
+				// Calibration function ends here *************************************************
+				break;
+			case opmode_NORMAL:
+				ClearScreen();
+				EnterCriticalSection(&ARtagLocalizer::tags_mutex);
+				for (int n = 0; n < 50; ++n)
+				{
+					ARtag * ar = ARtagLocalizer::tags[n];
+					if (ar->getId() == n)
+					{
+						cv::Mat pose = ar->getPose();
+						int camId = ar->getCamId();
+						float x = pose.at<float>(0,3)/1000.0*FUDGE_FACTOR + coff[camId].xoffset - ooffset.xoffset;
+						float y = -(pose.at<float>(1,3)/1000.0*FUDGE_FACTOR + coff[camId].yoffset - ooffset.yoffset);
+						float z = pose.at<float>(2,3)/1000.0;
+						float yaw = atan2(pose.at<float>(1,0), pose.at<float>(0,0));
+						if (yaw < 0)
+						{
+							yaw += 6.28;
+						}
+						printf("ARtag ID: %d\n", ar->getId());
+						printf("x: %.2f \t y: %.2f \t z: %.2f \t yaw: %.2f\n", x,y,z,yaw + coff[camId].yawoffset - ooffset.yawoffset);
+						printf("\n");
+						//broadcast msg here
+
+						ar->setId(-1);
+					}
+				}
+				LeaveCriticalSection(&ARtagLocalizer::tags_mutex);
+				break;
+			case opmode_IDLE:
+				break;
+		}
+
+		switch(cvWaitKey (10))
+		{
 			case 'q':
 				running=false;
 				Sync1394Camera::allStop = true;
 				ARtagLocalizer::allStop = true;
 				break;
-			case 'c':
+			case 's':
 				sprintf(filename, "image%d.jpg", framecount);
 				cvSaveImage (filename,img);
 				printf("Current image saved to %s\n", filename);
 				framecount++;
 				break;
+			case 'c':
+				opmode = opmode_CALIB;
+				calib_capture = true;
+				break;
+			case 'v':
+				opmode = opmode_NORMAL;
+				break;
+			case 'i':
+				opmode = opmode_IDLE;
+				break;
 			case 0x20:	//space-bar
 				if(!display_image){
 					display_image = !display_image;
-					cvResizeWindow("CameraServer. Press q to quit",imgrz->width, imgrz->height);
+					cvResizeWindow(viewWindowName,imgrz->width, imgrz->height);
 					
 				}
 				else{
 					display_image = !display_image;
-					cvResizeWindow("CameraServer. Press q to quit",200, 0);
+					cvResizeWindow(viewWindowName,200, 0);
 					
 				}				
 				break;
@@ -374,7 +536,7 @@ int main(int argc, const char* argv[])
 			/*if(frameNum%3!=0) continue; */
 		
 			cvResize(img,imgrz);
-			cvShowImage("CameraServer. Press q to quit",imgrz );
+			cvShowImage(viewWindowName,imgrz );
 		}
 		
 	}
@@ -389,11 +551,6 @@ int main(int argc, const char* argv[])
 	}
 	
 	Sleep(1000);
-}
-
-void calibCam()
-{
-
 }
 
 void ClearScreen()

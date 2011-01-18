@@ -1,5 +1,6 @@
 #include "ARtagLocalizer.h"
 #include "ARToolKitPlus/TrackerSingleMarkerImpl.h"
+#define FUDGE_FACTOR 0.97
 
 using namespace std;
 
@@ -20,6 +21,7 @@ ARtagLocalizer::ARtagLocalizer()
 	patternWidth_ = 80.0;
 	xoffset = 0;
 	yoffset = 0;
+	fudge = 0.97;
 	for (int n = 0; n < 50; ++n)
 	{
 		tags[n] = new ARtag();
@@ -36,9 +38,8 @@ ARtagLocalizer::~ARtagLocalizer()
 	DeleteCriticalSection (&tags_mutex);
 }
 
-int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth, float x_offset, float y_offset)
+int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth, float x_offset, float y_offset, float yaw_offset, float ffactor)
 {
-    size_t numPixels = width*height;
 	// create a tracker that does:
     //  - 6x6 sized marker images
     //  - samples at a maximum of 6x6
@@ -51,6 +52,8 @@ int ARtagLocalizer::initARtagPose(int width, int height, float markerWidth, floa
 	patternCenter_[0] = patternCenter_[1] = 0.0;
 	xoffset = x_offset;
 	yoffset = y_offset;
+	yawoffset = yaw_offset;
+	fudge = ffactor;
 
 	tracker->setPixelFormat(ARToolKitPlus::PIXEL_FORMAT_LUM);
 	// load a camera file. 
@@ -115,7 +118,7 @@ bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst, int camID)
 		return false;
 	}
 
-	//mytag.clear();
+	mytag.clear();
 
 	float modelViewMatrix_[16];
 	for(int m = 0; m < numMarkers; ++m) {
@@ -126,8 +129,12 @@ bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst, int camID)
 			float y = modelViewMatrix_[13] / 1000.0;
 			float z = modelViewMatrix_[14] / 1000.0;
 			float yaw = atan2(modelViewMatrix_[1], modelViewMatrix_[0]);
+			if (yaw < 0)
+			{
+				yaw += 6.28;
+			}
 
-			if ((x == 0 && y == 0 && yaw == 0) || (x > 10000 && y > 10000) || (x < -10000 && y < -10000))
+			if ((x == 0.0 && y == 0.0 && yaw == 0.0) || (x > 10000.0 && y > 10000.0) || (x < -10000.0 && y < -10000.0) || (z <= 0.001))
 			{
 				// ARTKPlus bug that occurs sometimes
 				continue;
@@ -140,7 +147,7 @@ bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst, int camID)
 			char str[30];
 			sprintf(str,"%d",markers[m].id);
 			cvPutText (dst,str,cvPoint( markers[m].pos[0]+25,markers[m].pos[1]+10),&cvFont(3,3),cvScalar(255,0,0));
-			sprintf(str,"(%.2f,%.2f)", x*0.96 + xoffset, y*0.96 + yoffset);
+			sprintf(str,"(%.2f,%.2f,%.2f)", x*fudge + xoffset, -(y*fudge + yoffset), yaw + yawoffset);
 			cvPutText (dst,str,cvPoint( markers[m].pos[0]+25,markers[m].pos[1]+25),&cvFont(1,1),cvScalar(255,0,0));
 
 			cv::Mat PoseM(4, 4, CV_32F, modelViewMatrix_);
@@ -156,13 +163,36 @@ bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst, int camID)
 				ar->setPose(&pose);
 				ar->setPoseAge(0);
 				ar->setCamId(camID);
+
+				ARtag mt;
+				mt.setId(markers[m].id);
+				mt.setPose(&pose);
+				mt.setPoseAge(0);
+				mt.setCamId(camID);
 				LeaveCriticalSection(&tags_mutex);
-				//mytag.push_back(*ar);
+				mytag.push_back(mt);
 			}
 		}
 	}
 
 	return true;
+}
+
+ARtag * ARtagLocalizer::getARtag(int index)
+{
+	return &mytag[index];
+}
+
+int ARtagLocalizer::getARtagSize()
+{
+	return mytag.size();
+}
+
+void ARtagLocalizer::setARtagOffset(float x_offset, float y_offset, float yaw_offset)
+{
+	xoffset = x_offset;
+	yoffset = y_offset;
+	yawoffset = yaw_offset;
 }
 
 int ARtagLocalizer::cleanupARtagPose(void)

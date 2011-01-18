@@ -1,7 +1,7 @@
 #include "sync1394camera.h"
 #define DEBUG_SYNC1394 0
 #define USE_SYSTIME 1
-//C1394Camera Sync1394Camera::camera;
+
 clock_t Sync1394Camera::start_tick;
 bool Sync1394Camera::allCamInit = false;
 bool Sync1394Camera::allStop = false;
@@ -17,36 +17,9 @@ bool undist_init = false;
 DWORD Sync1394Camera::CamThread ()
 {
 	int fcount= 0;
-	//init white balance************************************************
-	bool iswbconverged=0;
-	int wbFreq = 10;
-	CAutoWhiteBal m_wbal;
-	unsigned short r_gain,b_gain;
-	unsigned short r_gain_old,b_gain_old;
-	IplImage *wbim = cvCreateImage(cvSize(config.width,config.height),8,1);	
-	IplImage *wbrgb = cvCreateImage(cvSize(config.width,config.height),8,3);
-	m_wbal.InitInstance(cvSize(config.width,config.height));	
-	//******************************************************************
-
-	//init undistortion*************************************************
-	if (UNDIST)
-	{
-		if (!undist_init)
-		{
-			// Build the undistort map which we will use for all 
-			// subsequent frames.
-			mapx = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
-			mapy = cvCreateImage( cvSize(config.width,config.height), IPL_DEPTH_32F, 1 );
-			mapx = (IplImage*)cvLoad("..\\Unibrain\\mapx.xml");
-			mapy = (IplImage*)cvLoad("..\\Unibrain\\mapy.xml");
-			undist_init = true;
-		}
-	}
-	IplImage *undist_src = cvCreateImageHeader(cvSize(config.width,config.height),8,3);
-	IplImage *undist_dst = cvCreateImage(cvSize(config.width,config.height),8,3);
-	//******************************************************************
 
 	//init ARtaglocalizer***********************************************
+	IplImage *undist_src = cvCreateImageHeader(cvSize(config.width,config.height),8,3);
 	IplImage *gray = cvCreateImage(cvSize(config.width,config.height),8,1);	
 	//******************************************************************
 	printf("Cam %d Thread Started\n\n", camId);
@@ -57,19 +30,15 @@ DWORD Sync1394Camera::CamThread ()
 
 	while(isRunning) 
 	{	
-		// camera 0
 		C1394Camera* camptr = &camera;
 		fcount++;
 		unsigned long dlength=0;			
-		//float pgain = .01f;
 		int dFrames=0;
 
 		if (CAM_SUCCESS != camptr->AcquireImageEx(TRUE,&dFrames))
 		{
 			if (fcount %100==0)
 				printf("COULD NOT AQUIRE AN IMAGE FROM THE CAMERA %d.\n", camId);			
-			//this->buf = NULL;			
-			//while(1);
 		}
 		if (dFrames>0 && fcount>1) printf ("DROPPED %d FRAMES! %d\n",dFrames, camId);
 
@@ -88,6 +57,7 @@ DWORD Sync1394Camera::CamThread ()
 		
 		if (0 == dlength) 
 		{			
+			LeaveCriticalSection(&camgrab_cs);
 			continue;
 		}
 
@@ -98,123 +68,18 @@ DWORD Sync1394Camera::CamThread ()
 
 		undist_src->imageData = (char*) buf;
 		undist_src->imageDataOrigin = undist_src->imageData;
-		if (UNDIST)
+
+		cvCvtColor( undist_src, gray, CV_BGR2GRAY );
+		if(!allStop)
 		{
-			cvRemap( undist_src, undist_dst, mapx, mapy);
-			cvCvtColor( undist_dst, gray, CV_BGR2GRAY );
-			if(!allStop)
-			{
-				if(artagLoc->getARtagPose(gray, undist_dst, camId))
-				{
-				}
-			}
-			memcpy(buf,undist_dst->imageData,config.width*config.height*3);
-		}
-		else
-		{
-			cvCvtColor( undist_src, gray, CV_BGR2GRAY );
-			if(!allStop)
-			{
-				if(artagLoc->getARtagPose(gray, undist_src, camId))
-				{
-				}
-			}
+			artagLoc->getARtagPose(gray, undist_src, camId);
 		}
 
 		LeaveCriticalSection(&camgrab_cs);
 		SetEvent (cameraEvent);	
 
-		if ((config.AGC) && (config.isSlave == false))
-		{
-			if (fcount%3 == 0)
-			{
-
-#if AUTOGAIN_USE_MEDIAN
-				int median = GetMedianPixelValue(buf,config.AGCtop,config.AGCbot);
-
-				//too bright, positive error, 
-				//so pos error means decrease gain
-				float error = ((float)median - (float)idealMedian); 
-				float effort = 1;
-				error = error*TOTAL_KP;
-
-				effort = (abs(error * kp));
-				if (error<0) effort*=-1;
-				AGCerror = error;
-				AGCeffort = effort;	
-
-				int newgain = (int)GetGain(camptr) - (int)effort;
-				if ((int)GetGain(camptr) != newgain)
-					SetGain (camptr,newgain);
-
-#ifdef USESHUTTERGAIN
-				float seffort = AUTOSHUTTER_KP;
-				int newShutter = (int) GetShutter (camptr)  - (int)(error*seffort);
-				if ((int)GetShutter(camptr) != newShutter)
-					SetShutter (camptr,newShutter);		
-
-
-#endif
-
-				double beffort = AUTOBRIGHT_KP;
-				int newbright = (int)GetBright(camptr) - (int) (error*beffort);
-				/*if ((int)GetBright(camptr) != newbright)
-					SetBright (camptr,newbright);*/
-				if (fcount %100==0)
-				{
-					printf("CAM0 AGC: Median: %d Brightness: %d Gain: %d Shutter: %d Error: %f\n",median,newbright,newgain,newShutter,error);
-				}
-			}
-		
-			if(config.AutoWB)
-			{
-				float thres=1;
-				if(iswbconverged )
-				{
-					wbFreq=10;
-				}
-				else
-				{
-					wbFreq=1;
-				}
-				if(fcount%wbFreq==0)
-				{
-					//cvShowImage("teest",wbim);cvWaitKey(10);
-					memcpy(wbim->imageData,buf,config.width*config.height);
-					cvCvtColor(wbim,wbrgb,CV_BayerBG2BGR);
-					GetWhiteBal(camptr, &r_gain, &b_gain);
-					r_gain_old=r_gain;
-					b_gain_old=b_gain;
-					m_wbal.RunAWB(wbrgb, &r_gain, &b_gain);
-					SetWhiteBal(camptr, r_gain, b_gain);
-					if(abs(r_gain-r_gain_old)<thres && abs(b_gain-b_gain_old)<thres)
-					{	//check for converge1
-						iswbconverged=1;
-					}
-					else
-					{
-						iswbconverged=0;
-					}
-				}
-			}
-			
-#else
-			int maxedOutPixels = GetNumMaxedPixelsInBuf(config.AGCtop,config.AGCbot);
-			if (maxedOutPixels != -1)
-			{
-				//too many pixels, + error
-				int error = (maxedOutPixels - AUTOGAIN_MAX_IDEAL); 
-				if ((error>0) && (GetGain()>0))	 //too bright
-					SetGain (GetGain() - 1);
-				else if (error<0)
-					SetGain (GetGain() + 1);
-			}
-#endif
-		}
 	}
-	cvReleaseImage(&wbim);
-	cvReleaseImage(&wbrgb);
-	cvReleaseImage(&undist_dst);
+
 	cvReleaseImage(&gray);
 	printf("\nCam %d Thread Ended\n", camId);
 	return 0;
@@ -258,7 +123,7 @@ Sync1394Camera::~Sync1394Camera()
 	}
 	artagLoc->cleanupARtagPose();
 }
-bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config, float x_offset, float y_offset) 
+bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config, float x_offset, float y_offset, float yaw_offset, float fudge) 
 {
 	C1394Camera* camptr;
 	
@@ -286,7 +151,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config, float x_of
 	{
 		start_tick = clock();
 	}
-	artagLoc->initARtagPose(640, 480, 200.0, x_offset, y_offset);
+	artagLoc->initARtagPose(640, 480, 200.0, x_offset, y_offset, yaw_offset, fudge);
 	if(camptr->SelectCamera(cameraID)!=CAM_SUCCESS)	
 	{ 
 		printf("Could not select camera\n" ); 
@@ -491,7 +356,7 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config, float x_of
 		}
 	}
 	
-	printf("\nCompleted Init of Camera %d\n", camId);
+	printf("Completed Init of Camera %d\n", camId);
 
 	if (config.eTrigEnabled)
 	{
