@@ -17,7 +17,6 @@
 #include <vector>
 #include "..\network\udp_connection.h"
 
-#include "..\camera\AutoWhiteBal.h"
 #include "..\artag\ARtag.h"
 #include "..\artag\ARtagLocalizer.h"
 
@@ -35,8 +34,9 @@
 #define UDP_CONTROL_PORT 20
 #define UDP_CONTROL_IP "192.168.1.8"
 
-#define UDP_BROADCAST_IP "232.132.1.8"
-#define UDP_BROADCAST_PORT 30008
+//#define UDP_BROADCAST_IP "232.132.1.8"
+#define UDP_BROADCAST_IP "255.255.255.255"
+#define UDP_BROADCAST_PORT 60066 
 
 #define AUTOGAIN_USE_MEDIAN		1
 #define AUTOGAIN_MEDIAN_IDEAL	120

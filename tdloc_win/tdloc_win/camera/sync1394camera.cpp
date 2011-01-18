@@ -43,7 +43,7 @@ DWORD Sync1394Camera::CamThread ()
 		if (dFrames>0 && fcount>1) printf ("DROPPED %d FRAMES! %d\n",dFrames, camId);
 
 		EnterCriticalSection(&camgrab_cs);		
-		if (USE_SYSTIME)	curtimestamp = (clock() - start_tick)/CLOCKS_PER_SEC;
+		if (USE_SYSTIME)	curtimestamp = (float)(clock() - start_tick)/(float)CLOCKS_PER_SEC;
 
 		if (config.isColor)
 		{

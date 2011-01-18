@@ -49,6 +49,17 @@ struct cam_offset
 	float yawoffset;
 };
 
+struct bcast_msg
+{
+	char tag_id;
+	char pose_x[4];
+	char pose_y[4];
+	char pose_yaw[4];
+	char timestamp[8];
+};
+
+typedef struct bcast_msg * bcast_msg_t;
+
 volatile bool running=true;
 void* pBuf;
 int WIDTH;
@@ -66,7 +77,11 @@ char filename[50];
 struct cam_offset coff[50];
 OperationMode opmode = opmode_IDLE;
 bool calib_capture = false;
-char viewWindowName[] = "CameraServer. Press Q to quit. Press C to calibrate. Press V to start broadcasting. Press I to go into idle.";
+char viewWindowName[] = "CameraServer. Press Q to quit. Press C to calibrate. Press V to start broadcasting, B to toggle broadcasting. Press I to go into idle.";
+bool broadcast_this = true;
+udp_connection* udp_msgTX;
+std::vector<bcast_msg> my_msg;
+char transmit_msg[1024];
 
 void ClearScreen();
 
@@ -200,6 +215,19 @@ int main(int argc, const char* argv[])
 	}
 	Sync1394Camera::allCamInit = true;
 	Sleep(10);
+
+	//Initialize UDP transmit port
+	udp_params paramsTX  =  udp_params(8866, UDP_BROADCAST_IP, UDP_BROADCAST_PORT); 
+	try
+	{		
+		paramsTX.no_listen = true;
+		udp_msgTX = new udp_connection(paramsTX);  
+	}
+	catch (exception)
+	{
+		printf("Couldn't init UDP TX on port %d\n",paramsTX.local_port);
+	}
+
 	printf("Press spacebar with view window selected to expand it\n");
 
 	IplImage* img;
@@ -462,6 +490,7 @@ int main(int argc, const char* argv[])
 				break;
 			case opmode_NORMAL:
 				ClearScreen();
+				my_msg.clear();
 				EnterCriticalSection(&ARtagLocalizer::tags_mutex);
 				for (int n = 0; n < 50; ++n)
 				{
@@ -479,14 +508,38 @@ int main(int argc, const char* argv[])
 							yaw += 6.28;
 						}
 						printf("ARtag ID: %d\n", ar->getId());
-						printf("x: %.2f \t y: %.2f \t z: %.2f \t yaw: %.2f\n", x,y,z,yaw + coff[camId].yawoffset - ooffset.yawoffset);
+						printf("x: %.2f \t y: %.2f \t z: %.2f \t yaw: %.2f \t time: %.4f\n", x,y,z,yaw + coff[camId].yawoffset - ooffset.yawoffset, cam[camId]->curtimestamp);
 						printf("\n");
-						//broadcast msg here
+
+						if (broadcast_this)
+						{
+							struct bcast_msg bmsg;
+							bmsg.tag_id = (char)ar->getId();
+							memcpy(bmsg.pose_x, &x, sizeof(float));
+							memcpy(bmsg.pose_y, &y, sizeof(float));
+							memcpy(bmsg.pose_yaw, &yaw, sizeof(float));
+							memcpy(bmsg.timestamp, &cam[camId]->curtimestamp, sizeof(double));
+							my_msg.push_back(bmsg);
+						}
 
 						ar->setId(-1);
 					}
 				}
 				LeaveCriticalSection(&ARtagLocalizer::tags_mutex);
+				//broadcast msg here
+				if (broadcast_this)
+				{
+					if (my_msg.size() > 0)
+					{
+						transmit_msg[0] = (char)my_msg.size();
+						for (int i = 0; i < my_msg.size(); ++i)
+						{
+							memcpy(transmit_msg+1 + sizeof(struct bcast_msg)*i, &my_msg[i], sizeof(struct bcast_msg));
+						}
+						udp_msgTX->send_message (transmit_msg, sizeof(struct bcast_msg)*((int)transmit_msg[0])+1, UDP_BROADCAST_IP, UDP_BROADCAST_PORT);
+					}
+					printf("Total of %d ARtags broadcasted.\n", my_msg.size());
+				}				
 				break;
 			case opmode_IDLE:
 				break;
@@ -511,6 +564,9 @@ int main(int argc, const char* argv[])
 				break;
 			case 'v':
 				opmode = opmode_NORMAL;
+				break;
+			case 'b':
+				broadcast_this = !broadcast_this;
 				break;
 			case 'i':
 				opmode = opmode_IDLE;

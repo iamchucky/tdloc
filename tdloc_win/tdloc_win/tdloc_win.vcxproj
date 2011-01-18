@@ -21,7 +21,6 @@
   <ItemGroup>
     <ClCompile Include="artag\ARtag.cpp" />
     <ClCompile Include="artag\ARtagLocalizer.cpp" />
-    <ClCompile Include="camera\AutoWhiteBal.cpp" />
     <ClCompile Include="camera\sync1394camera.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="network\net_utility.cpp" />
@@ -30,7 +29,6 @@
   <ItemGroup>
     <ClInclude Include="artag\ARtag.h" />
     <ClInclude Include="artag\ARtagLocalizer.h" />
-    <ClInclude Include="camera\AutoWhiteBal.h" />
     <ClInclude Include="camera\sync1394camera.h" />
     <ClInclude Include="network\net_utility.h" />
     <ClInclude Include="network\udp_connection.h" />
