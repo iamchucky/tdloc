@@ -5,6 +5,7 @@
 #define DISPLAY_ON 1
 #define NUM_CAM 0
 #define FUDGE_FACTOR 0.97
+#define SHARE_MEM_PROC 0
 
 #ifndef _WIN32_WINNT		// Allow use of features specific to Windows XP or later.                   
 #define _WIN32_WINNT 0x0501	// Change this to the appropriate value to target other versions of Windows.
@@ -249,26 +250,29 @@ int main(int argc, const char* argv[])
 		imgrz = cvCreateImage (cvSize(camWidth/2,camHeight/2),IPL_DEPTH_8U,1);
 	}		
 
-	hMapFile = CreateFileMappingA(
-		INVALID_HANDLE_VALUE,    // use paging file
-		NULL,                    // default security 
-		PAGE_READWRITE,          // read/write access
-		0,                       // max. object size 
-		(camWidth*camHeight*numChannels) + sizeof(double), // buffer size  
-		szName);                 // name of mapping object
-	if (hMapFile == NULL) 
-	{ 
-		printf("Could not create file mapping object (%d).\n", GetLastError());
-	}
+	if (SHARE_MEM_PROC)
+	{
+		hMapFile = CreateFileMappingA(
+			INVALID_HANDLE_VALUE,    // use paging file
+			NULL,                    // default security 
+			PAGE_READWRITE,          // read/write access
+			0,                       // max. object size 
+			(camWidth*camHeight*numChannels) + sizeof(double), // buffer size  
+			szName);                 // name of mapping object
+		if (hMapFile == NULL) 
+		{ 
+			printf("Could not create file mapping object (%d).\n", GetLastError());
+		}
 
-	pBuf = MapViewOfFile(hMapFile,   // handle to map object
-		FILE_MAP_ALL_ACCESS, // read/write permission
-		0,                   
-		0,                   
-		0);            //goto max size
-	if (pBuf == NULL) 
-	{ 
-		printf("Could not map view of file (%d).\n", GetLastError()); 
+		pBuf = MapViewOfFile(hMapFile,   // handle to map object
+			FILE_MAP_ALL_ACCESS, // read/write permission
+			0,                   
+			0,                   
+			0);            //goto max size
+		if (pBuf == NULL) 
+		{ 
+			printf("Could not map view of file (%d).\n", GetLastError()); 
+		}
 	}
 
 	running=true;
@@ -308,7 +312,11 @@ int main(int argc, const char* argv[])
 				printf("WARNING: No Image. Check cam sync is on and connected, then restart.\n");
 			else
 				printf("WARNING: No Image TERMINATING.\n");
-			WaitForSingleObject(ghMutex,5000); //steal the mutex to prevent further processing in host apps
+
+			if (SHARE_MEM_PROC)
+			{
+				WaitForSingleObject(ghMutex,5000); //steal the mutex to prevent further processing in host apps
+			}
 			continue;
 		}
 		for (int n = 0; n < numCam; ++n)
@@ -354,19 +362,22 @@ int main(int argc, const char* argv[])
 			LeaveCriticalSection(&cam[n]->camgrab_cs);
 		}
 
-		if (WaitForSingleObject(ghMutex,5000)!=WAIT_OBJECT_0)
-		{
-			printf("Warning: Did not receive global map handle in 5 seconds...");
-			continue;
-		}
-
 		//dst src size
 		if (upsidedown)
 			cvFlip (img,img,-1);
 
-		CopyMemory(pBuf, img->imageData, camWidth*camHeight*numChannels);		
-		CopyMemory((char*)pBuf+(camWidth*camHeight*numChannels), &timestamp,sizeof(double));
-		ReleaseMutex(ghMutex);
+		if (SHARE_MEM_PROC)
+		{
+			if (WaitForSingleObject(ghMutex,5000)!=WAIT_OBJECT_0)
+			{
+				printf("Warning: Did not receive global map handle in 5 seconds...");
+				continue;
+			}
+			CopyMemory(pBuf, img->imageData, camWidth*camHeight*numChannels);		
+			CopyMemory((char*)pBuf+(camWidth*camHeight*numChannels), &timestamp,sizeof(double));
+			ReleaseMutex(ghMutex);
+		}
+
 		switch(opmode)
 		{
 			case opmode_CALIB:
@@ -598,8 +609,11 @@ int main(int argc, const char* argv[])
 	}
 
 	// exit this program
-	UnmapViewOfFile(pBuf);
-	CloseHandle(hMapFile);
+	if (SHARE_MEM_PROC)
+	{
+		UnmapViewOfFile(pBuf);
+		CloseHandle(hMapFile);
+	}
 	CloseHandle(close_event);
 	for (int n = 0; n < numCam; ++n)
 	{
