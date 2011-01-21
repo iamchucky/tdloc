@@ -128,7 +128,7 @@ bool ARtagLocalizer::getARtagPose(IplImage* src, IplImage* dst, int camID)
 			float x = modelViewMatrix_[12] / 1000.0;
 			float y = modelViewMatrix_[13] / 1000.0;
 			float z = modelViewMatrix_[14] / 1000.0;
-			float yaw = atan2(modelViewMatrix_[1], modelViewMatrix_[0]);
+			float yaw = -atan2(modelViewMatrix_[1], modelViewMatrix_[0]);
 			if (yaw < 0)
 			{
 				yaw += 6.28;

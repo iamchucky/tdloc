@@ -513,7 +513,7 @@ int main(int argc, const char* argv[])
 						float x = pose.at<float>(0,3)/1000.0*FUDGE_FACTOR + coff[camId].xoffset - ooffset.xoffset;
 						float y = -(pose.at<float>(1,3)/1000.0*FUDGE_FACTOR + coff[camId].yoffset - ooffset.yoffset);
 						float z = pose.at<float>(2,3)/1000.0;
-						float yaw = atan2(pose.at<float>(1,0), pose.at<float>(0,0));
+						float yaw = -atan2(pose.at<float>(1,0), pose.at<float>(0,0));
 						if (yaw < 0)
 						{
 							yaw += 6.28;
