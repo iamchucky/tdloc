@@ -12,6 +12,7 @@ p {}
 .mybody
 {
 	width:800px;
+	line-height:150%
 }
 .name 
 { 
@@ -54,7 +55,7 @@ p {}
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a class="headerlink" href="#intrinsicparameters">Intrinsic parameters</a><br />
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a class="headerlink" href="#extrinsicparameters">Extrinsic parameters</a><br />
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a class="headerlink" href="#broadcastartagpose">Broadcast ARtag pose</a><br />
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a class="headerlink" href="#quitingtheprogram">Quiting the program</a><br />
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a class="headerlink" href="#quittingtheprogram">Quitting the program</a><br />
   &nbsp;&nbsp; <a class="headerlink" href="#artaggeneration">ARtag generation</a><br />
   &nbsp;&nbsp; <a class="headerlink" href="#troubleshooting">Troubleshooting</a><br />
 </p>
@@ -89,7 +90,7 @@ p {}
     <th scope="row" align="right">Axis orientation:</th>
     <td align="left">+x goes towards the window of the room<br />
 +y goes towards the blackboard in the room<br />
-+yaw in counterclock-wise direction with 0 starts from the +x axis</td>
++yaw in counter-clockwise direction with 0 starts from the +x axis</td>
   </tr>
   </table>
 
@@ -106,8 +107,8 @@ check the number of cameras detected by the computer under Device Manager (short
 <p><a name="readyforaction"></a>
 </p>
 <h2>Ready for action</h2>
-<p>  Double click on the &quot;Overhead Localization Server&quot; shortcut on the desktop. This opens up the program's console.
-  The message printed in the console (Initializing # camera(s)....) indicates the number of cameras you have currently attached to your computer. If it's different than what you think you should have, close the program and double check the hardware connection.</p>
+<p>  Double click on the <em>&quot;Overhead Localization Server&quot;</em> shortcut on the desktop. This opens up the program's console.
+  The message printed in the console (<em>Initializing # camera(s)....</em>) indicates the number of cameras you have currently attached to your computer. If it's different than what you think you should have, close the program and double check the hardware connection.</p>
   
 <p><a name="camerainitialization"></a>
 <h3>Camera Initialization</h3>
@@ -115,7 +116,7 @@ check the number of cameras detected by the computer under Device Manager (short
 <p align="center"><img src="doc/images/cam_init.png" width="677" height="342" alt="Camera Initializing" /></p>
 <p>When all 8 cameras are initialized, you will see the console looks like following picture.</p>
 <p align="center"><img src="doc/images/select_view.png" width="723" height="411" alt="All cameras initialized" /></p>
-<p>In addition, one more window will be created (titled CameraServ...), select the view window and press [spacebar] to expand/hide this view window. When the view window is expanded, you will be able to see the view of all 8 cameras. In the view window, any ARtags localized by the program will display a red colored text with ID number and its pose (x,y,yaw) next to the ARtag. Following image shows an uncalibrated camera extrinsics. Note that the pose showed in the image is with origin at each camera's focal center before camera extrinsic calibration.</p>
+<p>In addition, one more window will be created (titled <em>CameraServ...</em>), select the view window and press <strong>[spacebar]</strong> to expand/hide this view window. When the view window is expanded, you will be able to see the view of all 8 cameras. In the view window, any ARtags localized by the program will display a red colored text with ID number and its pose <em>(x,y,yaw)</em> next to the ARtag. Following image shows an un-calibrated camera extrinsic. Note that the pose showed in the image is with origin at each camera's focal center before camera extrinsic calibration.</p>
 <p align="center"><a href="doc/images/view_uncalib.png"><img src="doc/images/view_uncalib_sm.png" width="862" height="340" alt="Uncalibrated view" /></a></p>
 
 <p><a name="calibration"></a>
@@ -124,43 +125,51 @@ check the number of cameras detected by the computer under Device Manager (short
 
 <p><a name="intrinsicparameters"></a>
 <h4>Intrinsic parameters</h4>
-<p>  One can use MATLAB's calibration tool box that can be found in this website to find out the intrinsic parameters and obtain camera's focal length, focal center, distortion coefficients and obtain an ASCII-file containing the camera intrinsic parameter (example). More detail can be found on the bottom section of <a href="http://studierstube.icg.tu-graz.ac.at/handheld_ar/artoolkitplus.php">ARToolKitPlus' website</a>. Place the ASCII-file containing the camera intrinsic parameter under tdloc_trunk\ARToolKitPlus\data\ and modify ARtagLocalizer.c's init function to load such file properly. Then recompile and build the program. Note: The user usually doesn't need to recalibrate the intrinsic parameter if one uses the same model of cameras.</p>
+<p>  One can use MATLAB's calibration tool box that can be found in this website to find out the intrinsic parameters and obtain camera's focal length, focal center, distortion coefficients and obtain an ASCII-file containing the camera intrinsic parameter (example). More detail can be found on the bottom section of <a href="http://studierstube.icg.tu-graz.ac.at/handheld_ar/artoolkitplus.php">ARToolKitPlus' website</a>. Place the ASCII-file containing the camera intrinsic parameter under <em>tdloc_trunk\ARToolKitPlus\data\</em> and modify <em>ARtagLocalizer.c</em>'s init function to load such file properly. Then recompile and build the program. Note: The user usually doesn't need to recalibrate the intrinsic parameter if one uses the same model of cameras.</p>
 
 <p><a name="extrinsicparameters"></a>
 <h4>Extrinsic parameters</h4>
-<p>  There are 8 cameras that's being used by the program. So one needs to find out the relative position between each camera's coordinate frame. Such calibration is built-in with the Overhead Localization Server program. User can press [C] to calibrate this anytime after the cameras are initialized.</p>
-<p>Place a couple of ARtags under the cameras so that it shows the tag is visible and the ARtag IDs are displayed in the camera view. User should place the ARtags in the overlapped region between two cameras in order for the program to calculate the relative camera offsets. When there is no tag with same ID that's placed in two cameras' overlapped region, the console displays &quot;Trying again...&quot; to notify user to place some more ARtags in the field and make sure it can be seen by two nearby cameras.</p>
+<p>  There are 8 cameras being used by the program. Camera extrinsic is the relative position between each camera's coordinate frames. Such calibration is built-in with the Overhead Localization Server program. User can press <strong>[C]</strong> to calibrate the camera extrinsic any time after the cameras are initialized.</p>
+<p>Place a couple of ARtags under the cameras so that it shows the tag is visible and the ARtag IDs are displayed in the camera view. User should place the ARtags in the overlapped region between two cameras in order for the program to calculate the relative camera offsets. When there is no tag with same ID that's placed in two cameras' overlapped region, the console displays <em>&quot;Trying again...&quot;</em> to notify user to place some more ARtags in the field and make sure it can be seen by two nearby cameras.</p>
 <p align="center"><a href="doc/images/view_calib_trying.png"><img src="doc/images/view_calib_trying_sm.png" width="480" height="270" alt="No common ARtags seen" /></a></p>
-<p>The origin of the world coordinate is set to be where the ARtag ID 0 is located. If no ARtag with ID 0 is located in the camera field of view, then the origin of the world cooridinate is set to be the focal center of the camera 0 (the camera that provide the top left view in the view window). In order to verify that the camera extrinsics is calibrated, user has to inspect the ARtag poses displayed in the view window. For example, in following image, ARtag 18, 17, and 16 are placed 1.20 m apart in x direction with real world measurement. So their poses localized in the view window should also agree (or close to) with real world measurement.</p>
+<p>The origin of the world coordinate is set to be where the ARtag ID 0 is located. If no ARtag with ID 0 is located in the camera field of view, then the origin of the world coordinate is set to be the focal center of the camera 0 (the camera that provide the top left view in the view window). In order to verify that the camera extrinsic is calibrated, user has to inspect the ARtag poses displayed in the view window. For example, in following image, ARtag 18, 17, and 16 are placed 1.20 m apart in x direction with real world measurement. So their poses localized in the view window should also agree (or close to) with real world measurement.</p>
 <p align="center"><a href="doc/images/view_calib_with0.png"><img src="doc/images/view_calib_with0_sm.png" width="480" height="270" alt="ARtag with ID 0 is the origin of the world coordinate" /></a></p>
-<p>Note: It is recommanded that user placed lots of ARtags in two camera's overlapped region so that the camera can be calibrated with less effect from len distortion (eventhough the len distortion is virtually removed from the calibration of camera intrinsics). The program averages the offsets calculated from the ARtags in the overlapped region.</p>
+<p>Note: It is recommended that user placed lots of ARtags in two camera's overlapped region so that the camera can be calibrated with less effect from lens distortion (even though the lens distortion is virtually removed from the calibration of camera intrinsic). The program averages the offsets calculated from the ARtags in the overlapped region.</p>
 <p align="center"><a href="doc/images/view_calib_many.png"><img src="doc/images/view_calib_many_sm.png" width="862" height="340" alt="Many ARtags in overlapped region" /></a></p>
 
 <p><a name="broadcastartagpose"></a>
 <h3>Broadcast ARtag pose</h3>
-<p>  With the view window selected, press [V] to go into program's normal operation mode. The console will then display the pose information with timestamps of current ARtags that are been localized by the cameras. &quot;Total of # ARtags broadcasted.&quot; message printed in the console also indicate the number of ARtags pose information with timestamp that are being broadcasted to the network through UDP. With the view window selected, user can press [B] to toggle the broadcasting of the pose message.</p>
+<p>  With the view window selected, press <strong>[V]</strong> to go into program's normal operation mode. The console will then display the pose information with timestamps of current ARtags that are been localized by the cameras. <em>&quot;Total of # ARtags broadcasted.&quot;</em> message printed in the console also indicate the number of ARtags pose information with timestamp that are being broadcasted to the network through UDP. With the view window selected, user can press <strong>[B]</strong> to toggle the broadcasting of the pose message.</p>
 <p align="center"><img src="doc/images/view_pressv.png" width="677" height="342" alt="Real time indication of ARtag pose" /></p>
 
-<p><a name="quitingtheprogram"></a>
-<h3>Quiting the program</h3>
-<p>  With the view window selected, press [Q] to quit the program. The console will display something looks like following indicating a proper termination of the camera threads and firewire driver:</p>
+<p><a name="quittingtheprogram"></a>
+<h3>Quitting the program</h3>
+<p>  With the view window selected, press <strong>[Q]</strong> to quit the program. The console will display something looks like following indicating a proper termination of the camera threads and firewire driver:</p>
 <p align="center"><img src="doc/images/view_pressq.png" width="677" height="342" alt="quit program" /></p>
 
 <p>&nbsp;</p>
 <p><a name="artaggeneration"></a>
 </p>
 <h2>ARtag generation</h2>
-<p>  Run the windows command prompt and cd under tdloc_trunk\ARToolKitPlus\. Run <a href="doc/attached/IdPatGen.exe">IdPatGen.exe</a> without any argument after the command to display help instruction for the program. For the Overhead Localization Server, it is compatible with ARtags that has width of 200 cm, thin border, and BCH marker system. So an example of the command to generate the ARtag with ID 0 looks like following:</p>
+<p>  Run the windows command prompt and cd under <em>tdloc_trunk\ARToolKitPlus\</em>. Run <em><a href="doc/attached/IdPatGen.exe">IdPatGen.exe</a></em> without any argument after the command to display help instruction for the program. For the Overhead Localization Server, it is compatible with ARtags that has width of 200 cm, thin border, and BCH marker system. So an example of the command to generate the ARtag with ID 0 looks like following:</p>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>IdPatGen -thinborder -w 200 -bch 0 myartag</code>
 <p align="center"><img src="doc/images/idpatgen.png" width="677" height="474" alt="IdPatGen command line" /></p>
-<p>Then an ARtag with filename of &quot;<a href="doc/images/myartag_0000.tga">myartag_0000.tga</a>&quot; will be generated under the same directory. To print out the ARtag, one can open the .tga file with Quicktime player and print. When it is printed, measure the width of the tag to make sure the width is 200 cm.</p>
+<p>Then an ARtag with filename of <em>&quot;<a href="doc/images/myartag_0000.tga">myartag_0000.tga</a>&quot;</em> will be generated under the same directory. To print out the ARtag, one can open the <em>.tga</em> file with Quicktime player and print. When it is printed, measure the width of the tag to make sure the width is 200 cm.</p>
 
 <p>&nbsp;</p>
 <p><a name="troubleshooting"></a>
 </p>
 <h2>Troubleshooting</h2>
-<p>- Hardware</p>
-<p>- Software</p>
+<h3>Hardware</h3>
+<h4>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>Not all 8 cameras are detected by the computer.</em></h4>
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Reconnect the firewire cables from  the firewire hubs. Then double check the number of camera detected in the  device manager.</p>
+<h4>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>The program cannot initialize the cameras for some reason.</em></h4>
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Restart  the computer and double check the number of camera detected in the device  manager.</p>
+<h3>Software</h3>
+<h4>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>There is no message being broadcasted through the network.</em></h4>
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Press <strong>[V]</strong> to see if the message <em>“Total of # ARtags broadcasted.”</em> is displayed in the  console window. If not, press <strong>[B]</strong> to toggle the broadcasting function.</p>
+  <p>&nbsp;</p>
+  <p>&nbsp;</p>
 </div>
 </center>
 </body>
