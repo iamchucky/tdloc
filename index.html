@@ -9,34 +9,21 @@ body
 	font:14px/17px "Lucida Grande",Helvetica,Arial,sans-serif;
 }
 p {}
-#header
-{
-	background-color:#aa0404;
-	padding:2px;
-	color:white;
-}
 .mybody
 {
 	width:800px;
 }
 .name 
 { 
-	text-align:center;
-	font-family:Arial, sans-serif;
-	font-size:medium;
-
-}
-.email 
-{ 
-	text-align:center;
-	font-family:Arial, sans-serif;
-	font-style:italic;
-	font-size:medium;
-	color:white;
-	line-height:30%;
+	font-size:small;
 }
 .headerlink
 {
+}
+.headmsg
+{
+	font:18px "Times New Roman", Times, serif;
+	line-height:150%;
 }
 .quicklink 
 { 
@@ -51,10 +38,12 @@ p {}
 <table width="800" border="0" cellspacing="0" cellpadding="0">
   <tr>
     <td width="728"><h1>Overhead Localization System User Manual</h1>
-      <p style="font-size:12px"><em>Created by Chuck Yang &nbsp;&nbsp;&nbsp;&nbsp;ty244 at cornell dot edu</em></p></td>
+      <p class="name">Created by Chuck Yang &nbsp;&nbsp;&nbsp;&nbsp;ty244 at cornell dot edu</p></td>
     <td width="72"><img src="doc/images/tdloc_icon.png" alt="" width="72" height="72" /></td>
   </tr>
 </table>
+<p class="headmsg"><em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;Overhead localization system is a solution that aims to  create an indoor GPS-like localization system for robotics lab, classes, and  research. It utilizes 8 Unibrain firewire cameras, ARtags with computer vision  techniques in order to achieve such solution with minimum budget in mind.</em>&quot;</p>
+<p>&nbsp;</p>
 <h2>Quick Links</h2>
 <p class="quicklink">&nbsp;&nbsp; <a class="headerlink" href="#requirements">Requirements</a><br />
   &nbsp;&nbsp; <a class="headerlink" href="#specifications">Specifications</a><br />
@@ -70,7 +59,7 @@ p {}
   &nbsp;&nbsp; <a class="headerlink" href="#troubleshooting">Troubleshooting</a><br />
 </p>
 
-<p class="quicklink">&nbsp;</p>
+<p>&nbsp;</p>
 <a name="requirements"></a>
 <h2>Requirements</h2>
   <p><a href="http://sourceforge.net/projects/opencvlibrary/files/opencv-win/2.2/OpenCV-2.2.0-win32-vs2010.exe/download">OpenCV2.2</a><br />
@@ -84,19 +73,23 @@ p {}
   <h2>Specifications</h2>
 <table width="635" border="0" cellpadding="10" cellspacing="0">
   <tr>
-    <th width="131" scope="row" align="right">Resolution:</th>
-    <td width="464" align="left">640 px by 480 px for each camera</td>
+    <th width="131" scope="row" align="right">Total field of view:</th>
+    <td width="464" align="left">Approximately 4 m in x and 2 m in y direction</td>
+  </tr>
+  <tr>
+    <th scope="row" align="right">Resolution:</th>
+    <td align="left"><p>640 px by 480 px for each camera</p></td>
   </tr>
   <tr>
     <th scope="row" align="right">Error:</th>
     <td align="left"><p>+- 0.05 m in both x and y<br />
-      +- 0.1 rad in yaw</p></td>
++- 0.1 rad in yaw</p></td>
   </tr>
   <tr>
-    <th scope="row" align="right">Axis Orientation:</th>
-    <td align="left"><p>+x goes towards the window of the room<br />
-      +y goes towards the blackboard in the room<br />
-      +yaw in counterclock-wise direction with 0 starts from the +x axis</p></td>
+    <th scope="row" align="right">Axis orientation:</th>
+    <td align="left">+x goes towards the window of the room<br />
++y goes towards the blackboard in the room<br />
++yaw in counterclock-wise direction with 0 starts from the +x axis</td>
   </tr>
   </table>
 
