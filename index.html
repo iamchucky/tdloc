@@ -52,7 +52,7 @@ p {}
   <tr>
     <td width="728"><h1>Overhead Localization System User Manual</h1>
       <p style="font-size:12px"><em>Created by Chuck Yang &nbsp;&nbsp;&nbsp;&nbsp;ty244 at cornell dot edu</em></p></td>
-    <td width="72"><img src="images/tdloc_icon.png" alt="" width="72" height="72" /></td>
+    <td width="72"><img src="doc/images/tdloc_icon.png" alt="" width="72" height="72" /></td>
   </tr>
 </table>
 <h2>Quick Links</h2>
@@ -106,7 +106,7 @@ p {}
 <h2>Before you start</h2>
 <p>  Make sure firewire cables are connected to the overhead localization system correctly. Then
 check the number of cameras detected by the computer under Device Manager (shortcut on desktop). You should get 8 normally.</p>
-<p align="center"><a href="images/device_cameras.png"><img src="images/device_cameras_sm.png" width="500" height="358" alt="Camera attached under device manager" /></a></p>
+<p align="center"><a href="doc/images/device_cameras.png"><img src="doc/images/device_cameras_sm.png" width="500" height="358" alt="Camera attached under device manager" /></a></p>
 <p>If you think you are missing a camera or two, disconnect the 2 firewire cable from the firewire hub and reconnect it, this should correct the problem.</p>
 
 <p>&nbsp;</p>
@@ -119,11 +119,11 @@ check the number of cameras detected by the computer under Device Manager (short
 <p><a name="camerainitialization"></a>
 <h3>Camera Initialization</h3>
 <p>  Wait for the 8 cameras to be initialized. This should take some time, be patient.</p>
-<p align="center"><img src="images/cam_init.png" width="677" height="342" alt="Camera Initializing" /></p>
+<p align="center"><img src="doc/images/cam_init.png" width="677" height="342" alt="Camera Initializing" /></p>
 <p>When all 8 cameras are initialized, you will see the console looks like following picture.</p>
-<p align="center"><img src="images/select_view.png" width="723" height="411" alt="All cameras initialized" /></p>
+<p align="center"><img src="doc/images/select_view.png" width="723" height="411" alt="All cameras initialized" /></p>
 <p>In addition, one more window will be created (titled CameraServ...), select the view window and press [spacebar] to expand/hide this view window. When the view window is expanded, you will be able to see the view of all 8 cameras. In the view window, any ARtags localized by the program will display a red colored text with ID number and its pose (x,y,yaw) next to the ARtag. Following image shows an uncalibrated camera extrinsics. Note that the pose showed in the image is with origin at each camera's focal center before camera extrinsic calibration.</p>
-<p align="center"><a href="images/view_uncalib.png"><img src="images/view_uncalib_sm.png" width="862" height="340" alt="Uncalibrated view" /></a></p>
+<p align="center"><a href="doc/images/view_uncalib.png"><img src="doc/images/view_uncalib_sm.png" width="862" height="340" alt="Uncalibrated view" /></a></p>
 
 <p><a name="calibration"></a>
 <h3>Calibration</h3>
@@ -137,30 +137,30 @@ check the number of cameras detected by the computer under Device Manager (short
 <h4>Extrinsic parameters</h4>
 <p>  There are 8 cameras that's being used by the program. So one needs to find out the relative position between each camera's coordinate frame. Such calibration is built-in with the Overhead Localization Server program. User can press [C] to calibrate this anytime after the cameras are initialized.</p>
 <p>Place a couple of ARtags under the cameras so that it shows the tag is visible and the ARtag IDs are displayed in the camera view. User should place the ARtags in the overlapped region between two cameras in order for the program to calculate the relative camera offsets. When there is no tag with same ID that's placed in two cameras' overlapped region, the console displays &quot;Trying again...&quot; to notify user to place some more ARtags in the field and make sure it can be seen by two nearby cameras.</p>
-<p align="center"><a href="images/view_calib_trying.png"><img src="images/view_calib_trying_sm.png" width="480" height="270" alt="No common ARtags seen" /></a></p>
+<p align="center"><a href="doc/images/view_calib_trying.png"><img src="doc/images/view_calib_trying_sm.png" width="480" height="270" alt="No common ARtags seen" /></a></p>
 <p>The origin of the world coordinate is set to be where the ARtag ID 0 is located. If no ARtag with ID 0 is located in the camera field of view, then the origin of the world cooridinate is set to be the focal center of the camera 0 (the camera that provide the top left view in the view window). In order to verify that the camera extrinsics is calibrated, user has to inspect the ARtag poses displayed in the view window. For example, in following image, ARtag 18, 17, and 16 are placed 1.20 m apart in x direction with real world measurement. So their poses localized in the view window should also agree (or close to) with real world measurement.</p>
-<p align="center"><a href="images/view_calib_with0.png"><img src="images/view_calib_with0_sm.png" width="480" height="270" alt="ARtag with ID 0 is the origin of the world coordinate" /></a></p>
+<p align="center"><a href="doc/images/view_calib_with0.png"><img src="doc/images/view_calib_with0_sm.png" width="480" height="270" alt="ARtag with ID 0 is the origin of the world coordinate" /></a></p>
 <p>Note: It is recommanded that user placed lots of ARtags in two camera's overlapped region so that the camera can be calibrated with less effect from len distortion (eventhough the len distortion is virtually removed from the calibration of camera intrinsics). The program averages the offsets calculated from the ARtags in the overlapped region.</p>
-<p align="center"><a href="images/view_calib_many.png"><img src="images/view_calib_many_sm.png" width="862" height="340" alt="Many ARtags in overlapped region" /></a></p>
+<p align="center"><a href="doc/images/view_calib_many.png"><img src="doc/images/view_calib_many_sm.png" width="862" height="340" alt="Many ARtags in overlapped region" /></a></p>
 
 <p><a name="broadcastartagpose"></a>
 <h3>Broadcast ARtag pose</h3>
 <p>  With the view window selected, press [V] to go into program's normal operation mode. The console will then display the pose information with timestamps of current ARtags that are been localized by the cameras. &quot;Total of # ARtags broadcasted.&quot; message printed in the console also indicate the number of ARtags pose information with timestamp that are being broadcasted to the network through UDP. With the view window selected, user can press [B] to toggle the broadcasting of the pose message.</p>
-<p align="center"><img src="images/view_pressv.png" width="677" height="342" alt="Real time indication of ARtag pose" /></p>
+<p align="center"><img src="doc/images/view_pressv.png" width="677" height="342" alt="Real time indication of ARtag pose" /></p>
 
 <p><a name="quitingtheprogram"></a>
 <h3>Quiting the program</h3>
 <p>  With the view window selected, press [Q] to quit the program. The console will display something looks like following indicating a proper termination of the camera threads and firewire driver:</p>
-<p align="center"><img src="images/view_pressq.png" width="677" height="342" alt="quit program" /></p>
+<p align="center"><img src="doc/images/view_pressq.png" width="677" height="342" alt="quit program" /></p>
 
 <p>&nbsp;</p>
 <p><a name="artaggeneration"></a>
 </p>
 <h2>ARtag generation</h2>
-<p>  Run the windows command prompt and cd under tdloc_trunk\ARToolKitPlus\. Run <a href="attached/IdPatGen.exe">IdPatGen.exe</a> without any argument after the command to display help instruction for the program. For the Overhead Localization Server, it is compatible with ARtags that has width of 200 cm, thin border, and BCH marker system. So an example of the command to generate the ARtag with ID 0 looks like following:</p>
+<p>  Run the windows command prompt and cd under tdloc_trunk\ARToolKitPlus\. Run <a href="doc/attached/IdPatGen.exe">IdPatGen.exe</a> without any argument after the command to display help instruction for the program. For the Overhead Localization Server, it is compatible with ARtags that has width of 200 cm, thin border, and BCH marker system. So an example of the command to generate the ARtag with ID 0 looks like following:</p>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>IdPatGen -thinborder -w 200 -bch 0 myartag</code>
-<p align="center"><img src="images/idpatgen.png" width="677" height="474" alt="IdPatGen command line" /></p>
-<p>Then an ARtag with filename of &quot;<a href="images/myartag_0000.tga">myartag_0000.tga</a>&quot; will be generated under the same directory. To print out the ARtag, one can open the .tga file with Quicktime player and print. When it is printed, measure the width of the tag to make sure the width is 200 cm.</p>
+<p align="center"><img src="doc/images/idpatgen.png" width="677" height="474" alt="IdPatGen command line" /></p>
+<p>Then an ARtag with filename of &quot;<a href="doc/images/myartag_0000.tga">myartag_0000.tga</a>&quot; will be generated under the same directory. To print out the ARtag, one can open the .tga file with Quicktime player and print. When it is printed, measure the width of the tag to make sure the width is 200 cm.</p>
 
 <p>&nbsp;</p>
 <p><a name="troubleshooting"></a>
