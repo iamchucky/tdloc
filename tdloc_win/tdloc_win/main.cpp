@@ -487,7 +487,7 @@ int main(int argc, const char* argv[])
 						for (int n = 0; n < numCam; ++n)
 						{
 							cam[n]->artagLoc->setARtagOffset(coff[n].xoffset-ooffset.xoffset, coff[n].yoffset-ooffset.yoffset, 0.f);
-							printf("CAM%d\t xoffset: %.2f\t yoffset: %.2f\t yawoffset: %.2f\n", n, coff[n].xoffset-ooffset.xoffset, -(coff[n].xoffset-ooffset.xoffset), 0.f);
+							printf("CAM%d\t xoffset: %.2f\t yoffset: %.2f\t yawoffset: %.2f\n", n, coff[n].xoffset-ooffset.xoffset, -(coff[n].yoffset-ooffset.yoffset), 0.f);
 						}
 						opmode = opmode_IDLE;
 						calib_capture = false;
