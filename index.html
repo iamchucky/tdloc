@@ -39,7 +39,7 @@ p {}
 <table width="800" border="0" cellspacing="0" cellpadding="0">
   <tr>
     <td width="728"><h1>Overhead Localization System User Manual</h1>
-      <p class="name">Created by Chuck Yang &nbsp;&nbsp;&nbsp;&nbsp;ty244 at cornell dot edu &nbsp;&nbsp;&nbsp;&nbsp; last modified: 1/22/2011</p></td>
+      <p class="name">Created by Chuck Yang &nbsp;&nbsp;&nbsp;&nbsp;ty244 at cornell dot edu &nbsp;&nbsp;&nbsp;&nbsp; last modified: 2/9/2011</p></td>
     <td width="72"><img src="doc/images/tdloc_icon.png" alt="" width="72" height="72" /></td>
   </tr>
 </table>
@@ -191,10 +191,10 @@ check the number of cameras detected by the computer under Device Manager (short
 <p><a name="artaggeneration"></a>
 </p>
 <h2>ARtag generation</h2>
-<p>  Run the windows command prompt and cd under <em>tdloc_trunk\ARToolKitPlus\</em>. Run <em><a href="doc/attached/IdPatGen.exe">IdPatGen.exe</a></em> without any argument after the command to display help instruction for the program. For the Overhead Localization Server, it is compatible with ARtags that has width of 200 cm, thin border, and BCH marker system. So an example of the command to generate the ARtag with ID 0 looks like following:</p>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>IdPatGen -thinborder -w 200 -bch 0 myartag</code>
-<p align="center"><img src="doc/images/idpatgen.png" width="677" height="474" alt="IdPatGen command line" /></p>
-<p>Then an ARtag with filename of <em>&quot;<a href="doc/images/myartag_0000.tga">myartag_0000.tga</a>&quot;</em> will be generated under the same directory. To print out the ARtag, one can open the <em>.tga</em> file with Quicktime player and print. When it is printed, measure the width of the tag to make sure the width is 200 cm.</p>
+<p>  Run the windows command prompt and cd under <em>tdloc_trunk\ARToolKitPlus\</em>. Run <em><a href="doc/attached/IdPatGen.exe">IdPatGen.exe</a></em> without any argument after the command to display help instruction for the program. For the Overhead Localization Server, it is compatible with ARtags that has width of 180 mm, thin border, and BCH marker system. So an example of the command to generate the ARtag with ID 0 looks like following:</p>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>IdPatGen -thinborder -w 180 -bch 0 myartag</code>
+<p align="center"><img src="doc/images/idpatgen.png" width="677" height="390" alt="IdPatGen command line" /></p>
+<p>Then an ARtag with filename of <em>&quot;<a href="doc/images/myartag_0000.tga">myartag_0000.tga</a>&quot;</em> will be generated under the same directory. To print out the ARtag, one can open the <em>.tga</em> file with Quicktime player and print. When it is printed, measure the width of the tag to make sure the width is 180 mm.</p>
 
 <p>&nbsp;</p>
 <p><a name="troubleshooting"></a>
