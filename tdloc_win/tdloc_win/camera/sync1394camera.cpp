@@ -151,7 +151,9 @@ bool Sync1394Camera::InitCamera(int cameraID, SyncCamParams m_config, float x_of
 	{
 		start_tick = clock();
 	}
-	artagLoc->initARtagPose(640, 480, 200.0, x_offset, y_offset, yaw_offset, fudge);
+	//artagLoc->initARtagPose(640, 480, 200.0, x_offset, y_offset, yaw_offset, fudge);
+	artagLoc->initARtagPose(640, 480, 180.0, x_offset, y_offset, yaw_offset, fudge);
+	//artagLoc->initARtagPose(640, 480, 160.0, x_offset, y_offset, yaw_offset, fudge);
 	if(camptr->SelectCamera(cameraID)!=CAM_SUCCESS)	
 	{ 
 		printf("Could not select camera\n" ); 

@@ -67,6 +67,8 @@ int WIDTH;
 int HEIGHT;
 int numCam = 1;
 int camOrder=12;
+int subx = 0;
+int suby = 0;
 bool upsidedown=false;
 CameraType camtype=CAM_UNIBRAIN;
 
@@ -80,6 +82,7 @@ OperationMode opmode = opmode_IDLE;
 bool calib_capture = false;
 char viewWindowName[] = "CameraServer. Press Q to quit. Press C to calibrate. Press V to start broadcasting, B to toggle broadcasting. Press I to go into idle.";
 bool broadcast_this = true;
+bool showsub = false;
 udp_connection* udp_msgTX;
 std::vector<bcast_msg> my_msg;
 char transmit_msg[1024];
@@ -233,6 +236,7 @@ int main(int argc, const char* argv[])
 
 	IplImage* img;
 	IplImage* imgrz;
+	IplImage* imgfull;
 	int camWidth = WIDTH*numCam;
 	int camHeight = HEIGHT*((int)ceil(numCam/4.f));
 	if (numCam >= 4)
@@ -243,6 +247,7 @@ int main(int argc, const char* argv[])
 	{
 		img = cvCreateImage (cvSize(camWidth,camHeight),IPL_DEPTH_8U,3);
 		imgrz = cvCreateImage (cvSize(camWidth*2/3,camHeight*2/3),IPL_DEPTH_8U,3);
+		imgfull = cvCreateImage (cvSize(WIDTH,HEIGHT),IPL_DEPTH_8U,3);
 	}
 	else
 	{
@@ -558,6 +563,70 @@ int main(int argc, const char* argv[])
 
 		switch(cvWaitKey (10))
 		{
+			case '0':
+				if (numCam > 0)
+				{
+					subx = 0;
+					suby = 0;
+					showsub = true;
+				}
+				break;
+			case '1':
+				if (numCam > 1)
+				{
+					subx = 640;
+					suby = 0;
+					showsub = true;
+				}
+				break;
+			case '2':
+				if (numCam > 2)
+				{
+					subx = 1280;
+					suby = 0;
+					showsub = true;
+				}
+				break;
+			case '3':
+				if (numCam > 3)
+				{
+					subx = 1920;
+					suby = 0;
+					showsub = true;
+				}
+				break;
+			case '4':
+				if (numCam > 4)
+				{
+					subx = 0;
+					suby = 480;
+					showsub = true;
+				}
+				break;
+			case '5':
+				if (numCam > 5)
+				{
+					subx = 640;
+					suby = 480;
+					showsub = true;
+				}
+				break;
+			case '6':
+				if (numCam > 6)
+				{
+					subx = 1280;
+					suby = 480;
+					showsub = true;
+				}
+				break;
+			case '7':
+				if (numCam > 7)
+				{
+					subx = 1920;
+					suby = 480;
+					showsub = true;
+				}
+				break;
 			case 'q':
 				running=false;
 				Sync1394Camera::allStop = true;
@@ -601,7 +670,13 @@ int main(int argc, const char* argv[])
 		if(DISPLAY_ON && display_image)
 		{
 			/*if(frameNum%3!=0) continue; */
-		
+			if (showsub)
+			{
+				cvSetImageROI(img,cvRect(subx,suby,WIDTH,HEIGHT));
+				cvCopy(img,imgfull);
+				cvResetImageROI(img);
+				cvShowImage("camera subimage",imgfull);
+			}
 			cvResize(img,imgrz);
 			cvShowImage(viewWindowName,imgrz );
 		}
